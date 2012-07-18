@@ -830,7 +830,8 @@ static irqreturn_t cy8c_ts_irq_thread(int irq, void *ptr)
 						if (ts->flag_htc_event == 0) {
 							if (!(finger_data[loop_i][2] == ts->sameFilter[2] &&
 								finger_data[loop_i][0] == ts->sameFilter[0] &&
-								finger_data[loop_i][1] == ts->sameFilter[1])) {
+								finger_data[loop_i][1] == ts->sameFilter[1] &&
+								(buf[2] & 0x0F) == 1)) {
 								input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR,
 									finger_data[loop_i][2]);
 								input_report_abs(ts->input_dev, ABS_MT_WIDTH_MAJOR,
@@ -871,7 +872,8 @@ static irqreturn_t cy8c_ts_irq_thread(int irq, void *ptr)
 				if (ts->flag_htc_event == 0) {
 					if (!(finger_data[loop_i][2] == ts->sameFilter[2] &&
 								finger_data[loop_i][0] == ts->sameFilter[0] &&
-								finger_data[loop_i][1] == ts->sameFilter[1])) {
+								finger_data[loop_i][1] == ts->sameFilter[1] &&
+								(buf[2] & 0x0F) == 1)) {
 						input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR,
 							finger_data[loop_i][2]);
 						input_report_abs(ts->input_dev, ABS_MT_WIDTH_MAJOR,
@@ -1041,6 +1043,7 @@ static int cy8c_ts_probe(struct i2c_client *client,
 		goto err_input_dev_alloc_failed;
 	}
 	ts->input_dev->name = "cy8c-touchscreen";
+	ts->input_dev->id.version = ts->version;
 	ts->input_dev->mtsize = 4;/* Initialize buffer with maximum 4 fingers at the same time */
 
 	set_bit(EV_SYN, ts->input_dev->evbit);
@@ -1082,7 +1085,7 @@ static int cy8c_ts_probe(struct i2c_client *client,
 	}
 
 	ret = request_threaded_irq(client->irq, NULL, cy8c_ts_irq_thread,
-			  IRQF_TRIGGER_FALLING | IRQF_ONESHOT, "cy8c_ts", ts);
+			  IRQF_TRIGGER_LOW | IRQF_ONESHOT, "cy8c_ts", ts);
 	if (ret != 0) {
 		dev_err(&client->dev, "TOUCH_ERR: request_irq failed\n");
 		dev_err(&client->dev, "TOUCH_ERR: don't support method without irq\n");

@@ -86,7 +86,7 @@ struct dhd_bus *g_bus;
 static struct wifi_platform_data *wifi_control_data = NULL;
 static struct resource *wifi_irqres = NULL;
 static int module_remove = 0;
-static int module_insert = 0;
+int module_insert = 0;
 
 int wifi_get_irq_number(unsigned long *irq_flags_ptr)
 {
@@ -379,6 +379,12 @@ module_param(dhd_pkt_filter_init, uint, 0);
 /* Pkt filter mode control */
 uint dhd_master_mode = TRUE;
 module_param(dhd_master_mode, uint, 1);
+
+/* Pkt filter for Rogers nat keep alive packet, we need change filter mode to filter out*/
+// packet filter for Rogers nat keep alive +++
+int filter_reverse = 0;
+module_param(filter_reverse, int, 0);
+// packet filter for Rogers nat keep alive ---
 
 /* Watchdog thread priority, -1 to use kernel timer */
 int dhd_watchdog_prio = 97;
@@ -3274,12 +3280,12 @@ int net_os_send_rssilow_message(struct net_device *dev)
 }
 //HTC_CSP_END
 
-void dhd_bus_country_set(struct net_device *dev, char *country_code)
+void dhd_bus_country_set(struct net_device *dev, wl_country_t *cspec)
 {
 	dhd_info_t *dhd = *(dhd_info_t **)netdev_priv(dev);
 
 	if (dhd && dhd->pub.up)
-		strncpy(dhd->pub.country_code, country_code, WLC_CNTRY_BUF_SZ);
+		memcpy(&dhd->pub.dhd_cspec, cspec, sizeof(wl_country_t));
 }
 
 
