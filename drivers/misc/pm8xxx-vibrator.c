@@ -162,6 +162,10 @@ static void pm8xxx_vib_enable(struct timed_output_dev *dev, int value)
 					 timed_dev);
 
 	VIB_INFO_LOG("%s vibrate period: %d msec\n",__func__,value);
+
+	if ((value == 20) || (value == 21)) {
+		value = 40;
+	}
 retry:
 
 	if (hrtimer_try_to_cancel(&vib->vib_timer) < 0) {
