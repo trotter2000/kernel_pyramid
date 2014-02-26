@@ -3,6 +3,8 @@
  * Copyright (C) 2010-2011 HTC Corporation.
  *
  * Copyright (c) 2013-2014 Sultanxda <sultanxda@gmail.com>
+ * Copyright (c) 2013 Sebastian Sobczyk <sebastiansobczyk@wp.pl>
+ * Copyright (c) 2013 bilalliberty <dominos_liberty @ xda-developers>
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -87,6 +89,7 @@
 #define GPIO_LCM_RST_N			(66)
 #define GPIO_LCM_ID			(50)
 
+#define GPIO_LCD_TE        (28)
 /* Audio */
 #define PYRAMID_AUD_CODEC_RST        (67)
 
@@ -147,10 +150,14 @@
 #define PYRAMID_AUD_REMO_PRES      PMGPIO(37)
 #define PYRAMID_WIFI_BT_SLEEP_CLK  PMGPIO(38)
 
+extern int panel_type;
 
 int __init pyramid_init_mmc(void);
 void __init pyramid_audio_init(void);
 int __init pyramid_init_keypad(void);
 int __init pyramid_wifi_init(void);
-
+void pyramid_init_fb(void);
+void pyramid_allocate_fb_region(void);
+void __init pyramid_mdp_writeback(struct memtype_reserve* reserve_table);
+void __init msm_fb_add_devices(void);
 #endif /* __ARCH_ARM_MACH_MSM_BOARD_PYRAMID_H */

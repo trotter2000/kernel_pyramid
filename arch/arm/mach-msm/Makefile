@@ -339,7 +339,7 @@ obj-$(CONFIG_MACH_KNIGHT) += board-knight-audio.o
 obj-$(CONFIG_MACH_KNIGHT) += htc_bdaddress.o
 
 # MSM8x60 boards
-obj-$(CONFIG_MACH_PYRAMID) += board-pyramid.o
+obj-$(CONFIG_MACH_PYRAMID) += board-pyramid.o board-pyramid-display.o
 obj-$(CONFIG_MACH_PYRAMID) += board-pyramid-keypad.o
 obj-$(CONFIG_MACH_PYRAMID) += board-pyramid-audio.o
 obj-$(CONFIG_HTC_BATT_CORE) += htc_battery_core.o

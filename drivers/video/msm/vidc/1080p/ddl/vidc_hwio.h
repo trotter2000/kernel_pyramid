@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,8 +24,8 @@
 #define VIDC_REG_IN(x...)
 #endif
 
-#define __inpdw(port) (*((u32 *) (port)))
-#define __outpdw(port, val) (*((u32 *) (port)) = ((u32) (val)))
+#define __inpdw(port) __raw_readl(port)
+#define __outpdw(port, val) __raw_writel(val, port)
 
 #define in_dword(addr) (__inpdw(addr))
 #define in_dword_masked(addr, mask) (__inpdw(addr) & (mask))

@@ -333,10 +333,7 @@ static void send_fb(struct projector_dev *ctxt)
 	int xfer;
 	int count = ctxt->framesize;
 
-	if (msmfb_get_fb_area())
-		frame = (ctxt->fbaddr + ctxt->framesize);
-	else
-		frame = ctxt->fbaddr;
+	frame = ctxt->fbaddr;
 
 	while (count > 0) {
 		req = proj_req_get(ctxt, &ctxt->tx_idle);
@@ -386,24 +383,6 @@ static void send_info(struct projector_dev *ctxt)
 		printk(KERN_INFO "%s: no req to send\n", __func__);
 }
 
-static void projector_get_msmfb(struct projector_dev *ctxt)
-{
-    struct msm_fb_info fb_info;
-
-	msmfb_get_var(&fb_info);
-
-	ctxt->bitsPixel = BITSPIXEL;
-	ctxt->width = fb_info.xres;
-	ctxt->height = fb_info.yres;
-	ctxt->fbaddr = fb_info.fb_addr;
-	printk(KERN_INFO "projector: width %d, height %d\n",
-		   fb_info.xres, fb_info.yres);
-
-	ctxt->framesize = (ctxt->width)*(ctxt->height)*2;
-	printk(KERN_INFO "projector: width %d, height %d %d\n",
-		   fb_info.xres, fb_info.yres, ctxt->framesize);
-}
-
 static void projector_complete_in(struct usb_ep *ep, struct usb_request *req)
 {
 	struct projector_dev *dev = &_projector_dev;
@@ -430,7 +409,6 @@ static void projector_complete_out(struct usb_ep *ep, struct usb_request *req)
 
 	if (!strncmp("init", data, 4)) {
 		if (!ctxt->init_done) {
-			projector_get_msmfb(ctxt);
 			ctxt->init_done = 1;
 		}
 		send_info(ctxt);
@@ -772,7 +750,6 @@ static int projector_bind_config(struct usb_configuration *c)
 	dev->function.set_alt = projector_function_set_alt;
 	dev->function.disable = projector_function_disable;
 
-	msmfb_get_var(&fb_info);
 	dev->bitsPixel = BITSPIXEL;
 	dev->width = fb_info.xres;
 	dev->height = fb_info.yres;
