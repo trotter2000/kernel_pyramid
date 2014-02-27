@@ -655,7 +655,7 @@ static int __init apr_init(void)
 			}
 		}
 	mutex_init(&q6.lock);
-	dsp_debug_register(adsp_state);
+/*	dsp_debug_register(adsp_state);*/
 	apr_reset_workqueue =
 		create_singlethread_workqueue("apr_driver");
 	if (!apr_reset_workqueue)
