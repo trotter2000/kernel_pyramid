@@ -73,7 +73,7 @@ ifdef CONFIG_ARCH_MSM8960
 	obj-y += tz_log.o
 endif
 ifdef CONFIG_ARCH_MSM8X60
-	obj-y += scm-log.o
+	#obj-y += scm-log.o
 endif
 obj-$(CONFIG_MSM_SECURE_IO) += scm-io.o
 obj-$(CONFIG_MSM_PIL) += peripheral-loader.o
@@ -120,7 +120,7 @@ obj-$(CONFIG_ARCH_MSM7X30_SMD) += 7x30-smd/
 else # Else CONFIG_ARCH_MSM7X30_SMD
 obj-y += modem_notifier.o
 obj-$(CONFIG_MSM_SMD_LOGGING) += smem_log.o
-obj-$(CONFIG_MSM_SMD) += smd.o smd_debug.o
+obj-$(CONFIG_MSM_SMD) += smd.o #smd_debug.o
 obj-$(CONFIG_MSM_SMD_TTY) += smd_tty.o
 obj-$(CONFIG_MSM_SMD_QMI) += smd_qmi.o
 obj-$(CONFIG_MSM_SMD_PKT) += smd_pkt.o
