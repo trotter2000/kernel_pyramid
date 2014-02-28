@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,7 +15,7 @@
 #define __ARCH_ARM_MACH_MSM_CPUIDLE_H
 
 #include <linux/notifier.h>
-#include "pm.h"
+#include "../../pm.h"
 
 struct msm_cpuidle_state {
 	unsigned int cpu;

@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/pm.h
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
  * Author: San Mehat <san@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -39,7 +39,6 @@
 #define RESTART_REASON_RIL_FATAL	(RESTART_REASON_OEM_BASE | 0x99)
 
 #ifdef CONFIG_SMP
-extern int pen_release;
 extern void msm_secondary_startup(void);
 #else
 #define msm_secondary_startup NULL
@@ -69,24 +68,32 @@ struct msm_pm_platform_data {
 				staying in the low power mode saves power */
 };
 
+struct msm_pm_sleep_status_data {
+	void *base_addr;
+	uint32_t cpu_offset;
+	uint32_t mask;
+};
 
 void msm_pm_set_platform_data(struct msm_pm_platform_data *data, int count);
 int msm_pm_idle_prepare(struct cpuidle_device *dev);
 int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode);
+void msm_pm_cpu_enter_lowpower(unsigned int cpu);
 
-#ifdef CONFIG_PM
+void __init msm_pm_init_sleep_status_data(
+		struct msm_pm_sleep_status_data *sleep_data);
+#ifdef CONFIG_MSM_PM8X60
 void msm_pm_set_rpm_wakeup_irq(unsigned int irq);
-int msm_pm_platform_secondary_init(unsigned int cpu);
+int msm_pm_wait_cpu_shutdown(unsigned int cpu);
+bool msm_pm_verify_cpu_pc(unsigned int cpu);
 #else
 static inline void msm_pm_set_rpm_wakeup_irq(unsigned int irq) {}
-static inline int msm_pm_platform_secondary_init(unsigned int cpu)
-{ return -ENOSYS; }
+static inline int msm_pm_wait_cpu_shutdown(unsigned int cpu) { return 0; }
+static inline bool msm_pm_verify_cpu_pc(unsigned int cpu) { return true; }
 #endif
-int print_gpio_buffer(struct seq_file *m);
-int free_gpio_buffer(void);
 
-extern int board_mfg_mode(void);
-extern char *board_get_mfg_sleep_gpio_table(void);
-extern void gpio_set_diag_gpio_table(unsigned long *dwMFG_gpio_table);
-
+#ifdef CONFIG_HOTPLUG_CPU
+int msm_platform_secondary_init(unsigned int cpu);
+#else
+static inline int msm_platform_secondary_init(unsigned int cpu) { return 0; }
+#endif
 #endif  /* __ARCH_ARM_MACH_MSM_PM_H */
