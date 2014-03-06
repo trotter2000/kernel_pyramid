@@ -1649,17 +1649,6 @@ config WIFI_CONTROL_FUNC
 	help
 	  Enables Power/Reset/Carddetect function abstraction
 
-config WIFI_MEM_PREALLOC
-	depends on WIFI_CONTROL_FUNC
-	bool "Preallocate memory for WiFi buffers"
-	help
-	  Preallocates memory buffers for WiFi driver
-
-config WIFI_NVS_PROC_CREATE
-	bool "Store nvs data into /proc/calibration"
-	help
-	  store nvs data into /proc/calibration
-
 config ARCH_MSM_FLASHLIGHT
 	bool "Flashlight Driver"
 	depends on ARCH_MSM
@@ -2238,11 +2227,6 @@ config TIWLAN_SDIO
         help
            Say Y here if you want to be able to use TI's WLAN device using the
            SDIO interface. If unsure, say N.
-
-config WIFI_NVS_PROC_CREATE
-       bool "Store nvs data into /proc/calibration"
-       help
-         store nvs data into /proc/calibration
 
 config HTC_BATT_ALARM
 	bool "Enable 3.0V device shutdown mechanism"
