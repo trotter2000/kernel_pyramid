@@ -132,6 +132,8 @@ enum {
 	NUM_HSIC_PARAM,
 };
 
+#define MDSS_MDP_RIGHT_MIXER		0x100
+
 /* mdp_blit_req flag values */
 #define MDP_ROT_NOP 0
 #define MDP_FLIP_LR 0x1
@@ -428,7 +430,7 @@ enum {
 
 /*
  * mdp_histogram_start_req is used to provide the parameters for
- *histogram start request
+ * histogram start request
  */
 
 struct mdp_histogram_start_req {
@@ -438,12 +440,10 @@ struct mdp_histogram_start_req {
 	uint8_t num_bins;
 };
 
-
 /*
  * mdp_histogram_data is used to return the histogram data, once
  * the histogram is done/stopped/cance
  */
-
 
 struct mdp_histogram_data {
 	uint32_t block;
