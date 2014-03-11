@@ -1065,8 +1065,7 @@ static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
 	__tcp_v6_send_check(buff, &fl6.saddr, &fl6.daddr);
 
 	fl6.flowi6_proto = IPPROTO_TCP;
-	if (ipv6_addr_type(&fl6.daddr) & IPV6_ADDR_LINKLOCAL)
-		fl6.flowi6_oif = inet6_iif(skb);
+	fl6.flowi6_oif = inet6_iif(skb);
 	fl6.fl6_dport = t1->dest;
 	fl6.fl6_sport = t1->source;
 	security_skb_classify_flow(skb, flowi6_to_flowi(&fl6));
@@ -1102,7 +1101,7 @@ static void tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb)
 
 #ifdef CONFIG_TCP_MD5SIG
 	if (sk)
-		key = tcp_v6_md5_do_lookup(sk, &ipv6_hdr(skb)->saddr);
+		key = tcp_v6_md5_do_lookup(sk, &ipv6_hdr(skb)->daddr);
 #endif
 
 	if (th->ack)
@@ -1527,10 +1526,6 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
 	tcp_mtup_init(newsk);
 	tcp_sync_mss(newsk, dst_mtu(dst));
 	newtp->advmss = dst_metric_advmss(dst);
-	if (tcp_sk(sk)->rx_opt.user_mss &&
-	    tcp_sk(sk)->rx_opt.user_mss < newtp->advmss)
-		newtp->advmss = tcp_sk(sk)->rx_opt.user_mss;
-
 	tcp_initialize_rcv_mss(newsk);
 
 	newinet->inet_daddr = newinet->inet_saddr = LOOPBACK4_IPV6;
@@ -2217,17 +2212,6 @@ void tcp6_proc_exit(struct net *net)
 }
 #endif
 
-static void tcp_v6_clear_sk(struct sock *sk, int size)
-{
-	struct inet_sock *inet = inet_sk(sk);
-
-	/* we do not want to clear pinet6 field, because of RCU lookups */
-	sk_prot_clear_nulls(sk, offsetof(struct inet_sock, pinet6));
-
-	size -= offsetof(struct inet_sock, pinet6) + sizeof(inet->pinet6);
-	memset(&inet->pinet6 + 1, 0, size);
-}
-
 struct proto tcpv6_prot = {
 	.name			= "TCPv6",
 	.owner			= THIS_MODULE,
@@ -2267,7 +2251,6 @@ struct proto tcpv6_prot = {
 	.compat_setsockopt	= compat_tcp_setsockopt,
 	.compat_getsockopt	= compat_tcp_getsockopt,
 #endif
-	.clear_sk		= tcp_v6_clear_sk,
 };
 
 static const struct inet6_protocol tcpv6_protocol = {

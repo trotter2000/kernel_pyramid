@@ -207,7 +207,6 @@ struct dentry_operations {
 
 #define DCACHE_CANT_MOUNT	0x0100
 #define DCACHE_GENOCIDE		0x0200
-#define DCACHE_SHRINK_LIST	0x0400
 
 #define DCACHE_OP_HASH		0x1000
 #define DCACHE_OP_COMPARE	0x2000
@@ -219,8 +218,6 @@ struct dentry_operations {
 #define DCACHE_MANAGE_TRANSIT	0x40000	/* manage transit from this dirent */
 #define DCACHE_MANAGED_DENTRY \
 	(DCACHE_MOUNTED|DCACHE_NEED_AUTOMOUNT|DCACHE_MANAGE_TRANSIT)
-
-#define DCACHE_DENTRY_KILLED	0x100000
 
 extern seqlock_t rename_lock;
 

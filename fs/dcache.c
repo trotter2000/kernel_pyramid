@@ -241,7 +241,6 @@ static void dentry_lru_add(struct dentry *dentry)
 static void __dentry_lru_del(struct dentry *dentry)
 {
 	list_del_init(&dentry->d_lru);
-	dentry->d_flags &= ~DCACHE_SHRINK_LIST;
 	dentry->d_sb->s_nr_dentry_unused--;
 	dentry_stat.nr_unused--;
 }
@@ -290,7 +289,7 @@ static struct dentry *d_kill(struct dentry *dentry, struct dentry *parent)
 	 * Inform try_to_ascend() that we are no longer attached to the
 	 * dentry tree
 	 */
-	dentry->d_flags |= DCACHE_DENTRY_KILLED;
+	dentry->d_flags |= DCACHE_DISCONNECTED;
 	if (parent)
 		spin_unlock(&parent->d_lock);
 	dentry_iput(dentry);
@@ -754,7 +753,6 @@ relock:
 			spin_unlock(&dentry->d_lock);
 		} else {
 			list_move_tail(&dentry->d_lru, &tmp);
-			dentry->d_flags |= DCACHE_SHRINK_LIST;
 			spin_unlock(&dentry->d_lock);
 			if (!--cnt)
 				break;
@@ -1015,7 +1013,7 @@ static struct dentry *try_to_ascend(struct dentry *old, int locked, unsigned seq
 	 * or deletion
 	 */
 	if (new != old->d_parent ||
-		 (old->d_flags & DCACHE_DENTRY_KILLED) ||
+		 (old->d_flags & DCACHE_DISCONNECTED) ||
 		 (!locked && read_seqretry(&rename_lock, seq))) {
 		spin_unlock(&new->d_lock);
 		new = NULL;
@@ -1101,8 +1099,6 @@ positive:
 	return 1;
 
 rename_retry:
-	if (locked)
-		goto again;
 	locked = 1;
 	write_seqlock(&rename_lock);
 	goto again;
@@ -1148,18 +1144,14 @@ resume:
 		/* 
 		 * move only zero ref count dentries to the end 
 		 * of the unused list for prune_dcache
-		 *
-		 * Those which are presently on the shrink list, being processed
-		 * by shrink_dentry_list(), shouldn't be moved.  Otherwise the
-		 * loop in shrink_dcache_parent() might not make any progress
-		 * and loop forever.
 		 */
-		if (dentry->d_count) {
-			dentry_lru_del(dentry);
-		} else if (!(dentry->d_flags & DCACHE_SHRINK_LIST)) {
+		if (!dentry->d_count) {
 			dentry_lru_move_tail(dentry);
 			found++;
+		} else {
+			dentry_lru_del(dentry);
 		}
+
 		/*
 		 * We can return to the caller if we have found some (this
 		 * ensures forward progress). We'll be coming back to find
@@ -1205,8 +1197,6 @@ out:
 rename_retry:
 	if (found)
 		return found;
-	if (locked)
-		goto again;
 	locked = 1;
 	write_seqlock(&rename_lock);
 	goto again;
@@ -1563,7 +1553,7 @@ static struct dentry * d_find_any_alias(struct inode *inode)
  */
 struct dentry *d_obtain_alias(struct inode *inode)
 {
-	static const struct qstr anonstring = { .name = "/", .len = 1 };
+	static const struct qstr anonstring = { .name = "" };
 	struct dentry *tmp;
 	struct dentry *res;
 
@@ -2437,7 +2427,6 @@ struct dentry *d_materialise_unique(struct dentry *dentry, struct inode *inode)
 			if (d_ancestor(alias, dentry)) {
 				/* Check for loops */
 				actual = ERR_PTR(-ELOOP);
-				spin_unlock(&inode->i_lock);
 			} else if (IS_ROOT(alias)) {
 				/* Is this an anonymous mountpoint that we
 				 * could splice into our tree? */
@@ -2447,7 +2436,7 @@ struct dentry *d_materialise_unique(struct dentry *dentry, struct inode *inode)
 				goto found;
 			} else {
 				/* Nope, but we must(!) avoid directory
-				 * aliasing. This drops inode->i_lock */
+				 * aliasing */
 				actual = __d_unalias(inode, dentry, alias);
 			}
 			write_sequnlock(&rename_lock);
@@ -2994,8 +2983,6 @@ resume:
 	return;
 
 rename_retry:
-	if (locked)
-		goto again;
 	locked = 1;
 	write_seqlock(&rename_lock);
 	goto again;
