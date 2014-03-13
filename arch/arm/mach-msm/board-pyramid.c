@@ -3393,8 +3393,6 @@ static struct platform_device *pyramid_devices[] __initdata = {
 	&msm_rotator_device,
 #endif
 	&msm_kgsl_3d0,
-	&msm_kgsl_2d0,
-	&msm_kgsl_2d1,
 #ifdef CONFIG_MSM_CAMERA
 #ifdef CONFIG_S5K3H1GX
 	&msm_camera_sensor_s5k3h1gx,
@@ -6193,7 +6191,6 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	if (socinfo_init() < 0)
 		printk(KERN_ERR "%s: socinfo_init() failed!\n",
 		       __func__);
-	msm8x60_check_2d_hardware();
 
 	/* Change SPM handling of core 1 if PMM 8160 is present. */
 	soc_platform_version = socinfo_get_platform_version();
