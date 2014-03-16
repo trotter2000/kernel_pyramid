@@ -52,7 +52,7 @@
 #endif
 
 #ifdef CONFIG_ION_MSM
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <mach/ion.h>
 #endif
 
@@ -1944,18 +1944,22 @@ static struct msm_bus_scale_pdata smi_client_pdata = {
 	.name = "pmem_smi",
 };
 
-void pmem_request_smi_region(void *data)
+static int pmem_request_smi_region(void *data)
 {
 	int bus_id = (int) data;
 
 	msm_bus_scale_client_update_request(bus_id, 1);
+
+	return 0;
 }
 
-void pmem_release_smi_region(void *data)
+static int pmem_release_smi_region(void *data)
 {
 	int bus_id = (int) data;
 
 	msm_bus_scale_client_update_request(bus_id, 0);
+
+	return 0;
 }
 
 void *pmem_setup_smi_region(void)
@@ -2005,60 +2009,62 @@ static struct ion_co_heap_pdata co_ion_pdata = {
 	.align = PAGE_SIZE,
 };
 
+static struct ion_platform_heap pyramid_heaps[] = {
+	{
+		.id	= ION_SYSTEM_HEAP_ID,
+		.type	= ION_HEAP_TYPE_SYSTEM,
+		.name	= ION_VMALLOC_HEAP_NAME,
+	},
+	{
+		.id	= ION_MM_FIRMWARE_HEAP_ID,
+		.type	= ION_HEAP_TYPE_CARVEOUT,
+		.name	= ION_MM_FIRMWARE_HEAP_NAME,
+		.base	= MSM_ION_MM_FW_BASE,
+		.size	= MSM_ION_MM_FW_SIZE,
+		.memory_type = ION_SMI_TYPE,
+		.extra_data = (void *) &fw_co_ion_pdata,
+	},
+	{
+		.id	= ION_CP_MM_HEAP_ID,
+		.type	= ION_HEAP_TYPE_CP,
+		.name	= ION_MM_HEAP_NAME,
+		.base	= MSM_ION_MM_BASE,
+		.size	= MSM_ION_MM_SIZE,
+		.memory_type = ION_SMI_TYPE,
+		.extra_data = (void *) &cp_mm_ion_pdata,
+	},
+	{
+		.id	= ION_CP_MFC_HEAP_ID,
+		.type	= ION_HEAP_TYPE_CP,
+		.name	= ION_MFC_HEAP_NAME,
+		.base   = MSM_ION_MFC_BASE,
+		.size	= MSM_ION_MFC_SIZE,
+		.memory_type = ION_SMI_TYPE,
+		.extra_data = (void *) &cp_mfc_ion_pdata,
+	},
+	{
+		.id	= ION_CP_WB_HEAP_ID,
+		.type	= ION_HEAP_TYPE_CP,
+		.name	= ION_WB_HEAP_NAME,
+		.base	= MSM_ION_WB_BASE,
+		.size	= MSM_ION_WB_SIZE,
+		.memory_type = ION_EBI_TYPE,
+		.extra_data = (void *) &cp_wb_ion_pdata,
+	},
+	{
+		.id	= ION_SF_HEAP_ID,
+		.type	= ION_HEAP_TYPE_CARVEOUT,
+		.name	= ION_SF_HEAP_NAME,
+		.base	= MSM_ION_SF_BASE,
+		.size	= MSM_ION_SF_SIZE,
+		.memory_type = ION_EBI_TYPE,
+		.extra_data = (void *) &co_ion_pdata,
+	},
+};
+
 static struct ion_platform_data ion_pdata = {
-	.nr = MSM_ION_HEAP_NUM,
-	.heaps = {
-		{
-			.id	= ION_SYSTEM_HEAP_ID,
-			.type	= ION_HEAP_TYPE_SYSTEM,
-			.name	= ION_VMALLOC_HEAP_NAME,
-		},
-		{
-			.id	= ION_MM_FIRMWARE_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CARVEOUT,
-			.name	= ION_MM_FIRMWARE_HEAP_NAME,
-			.base	= MSM_ION_MM_FW_BASE,
-			.size	= MSM_ION_MM_FW_SIZE,
-			.memory_type = ION_SMI_TYPE,
-			.extra_data = (void *) &fw_co_ion_pdata,
-		},
-		{
-			.id	= ION_CP_MM_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CP,
-			.name	= ION_MM_HEAP_NAME,
-			.base	= MSM_ION_MM_BASE,
-			.size	= MSM_ION_MM_SIZE,
-			.memory_type = ION_SMI_TYPE,
-			.extra_data = (void *) &cp_mm_ion_pdata,
-		},
-		{
-			.id	= ION_CP_MFC_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CP,
-			.name	= ION_MFC_HEAP_NAME,
-			.base   = MSM_ION_MFC_BASE,
-			.size	= MSM_ION_MFC_SIZE,
-			.memory_type = ION_SMI_TYPE,
-			.extra_data = (void *) &cp_mfc_ion_pdata,
-		},
-		{
-			.id	= ION_CP_WB_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CP,
-			.name	= ION_WB_HEAP_NAME,
-			.base	= MSM_ION_WB_BASE,
-			.size	= MSM_ION_WB_SIZE,
-			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &cp_wb_ion_pdata,
-		},
-		{
-			.id	= ION_SF_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CARVEOUT,
-			.name	= ION_SF_HEAP_NAME,
-			.base	= MSM_ION_SF_BASE,
-			.size	= MSM_ION_SF_SIZE,
-			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &co_ion_pdata,
-		},
-	}
+        .nr = MSM_ION_HEAP_NUM,
+        .heaps = pyramid_heaps,
 };
 
 static struct platform_device ion_dev = {
