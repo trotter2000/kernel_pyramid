@@ -1267,7 +1267,6 @@ static struct platform_device msm_beats_headset_mic_device = {
 	.dev = { .platform_data = &snddev_beats_headset_mic_data },
 };
 
-#ifdef CONFIG_DEBUG_FS
 static void snddev_hsed_config_modify_setting(int type)
 {
 	struct platform_device *device;
@@ -1341,7 +1340,6 @@ static const struct file_operations snddev_hsed_config_debug_fops = {
 	.open = snddev_hsed_config_debug_open,
 	.write = snddev_hsed_config_debug_write
 };
-#endif
 
 static struct platform_device *snd_devices_common[] __initdata = {
 	&msm_uplink_rx_device,
