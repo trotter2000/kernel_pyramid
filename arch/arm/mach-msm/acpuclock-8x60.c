@@ -159,8 +159,7 @@ static struct msm_bus_paths bw_level_tbl[] = {
 	[0] =  BW_MBPS(824), /* At least 103 MHz on bus. */
 	[1] = BW_MBPS(1336), /* At least 167 MHz on bus. */
 	[2] = BW_MBPS(2008), /* At least 251 MHz on bus. */
-	[3] = BW_MBPS(2720), /* At least 340 MHz on bus. */
-	[4] = BW_MBPS(3600), /* At least 450 MHz on bus. */
+	[3] = BW_MBPS(2480), /* At least 310 MHz on bus. */
 };
 
 static struct msm_bus_scale_pdata bus_client_pdata = {
@@ -194,7 +193,7 @@ static struct clkctl_l2_speed l2_freq_tbl_v2[] = {
 	[17] = {1296000,  1, 0x18, 1200000, 1225000, 3},
 	[18] = {1350000,  1, 0x19, 1200000, 1225000, 3},
 	[19] = {1404000,  1, 0x1A, 1200000, 1250000, 3},
-	[20] = {1620000,  1, 0x1E, 1250000, 1300000, 4},
+	[20] = {1620000,  1, 0x1E, 1250000, 1300000, 3},
 };
 
 #define L2(x) (&l2_freq_tbl_v2[(x)])
@@ -202,6 +201,7 @@ static struct clkctl_l2_speed l2_freq_tbl_v2[] = {
 /* SCPLL frequencies = 2 * 27 MHz * L_VAL */
 static struct clkctl_acpu_speed acpu_freq_tbl_oc[] = {
   { {1, 1},  192000,  ACPU_PLL_8, 3, 1, 0, 0,    L2(1),   800000, 0x03006000},
+  /* MAX_AXI row is used to source CPU cores and L2 from the AFAB clock. */
   { {0, 0},  MAX_AXI, ACPU_AFAB,  1, 0, 0, 0,    L2(0),   825000, 0x03006000},
   { {1, 1},  384000,  ACPU_PLL_8, 3, 0, 0, 0,    L2(1),   825000, 0x03006000},
   { {1, 1},  432000,  ACPU_SCPLL, 0, 0, 1, 0x08, L2(1),   850000, 0x03006000},
@@ -878,14 +878,8 @@ static int __init acpuclk_8x60_init(struct acpuclk_soc_data *soc_data)
 	bus_init();
 
 	/* Improve boot time by ramping up CPUs immediately. */
-#ifdef CONFIG_MSM_CPU_FREQ_SET_MIN_MAX
-		for_each_online_cpu(cpu)
-			acpuclk_8x60_set_rate(cpu, CONFIG_MSM_CPU_FREQ_MAX, SETRATE_INIT);
-#else
-		for_each_online_cpu(cpu)
-			acpuclk_8x60_set_rate(cpu, 1512000, SETRATE_INIT);
-#endif
-
+	for_each_online_cpu(cpu)
+		acpuclk_8x60_set_rate(cpu, 1512000, SETRATE_INIT);
 
 	acpuclk_register(&acpuclk_8x60_data);
 	cpufreq_table_init();
