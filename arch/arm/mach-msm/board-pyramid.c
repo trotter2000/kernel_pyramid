@@ -2110,7 +2110,7 @@ static struct platform_device *hdmi_devices[] __initdata = {
 static struct android_pmem_platform_data android_pmem_smipool_pdata = {
 	.name = "pmem_smipool",
 	.allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
-	.cached = 1,
+	.cached = 0,
 	.memory_type = MEMTYPE_SMI,
 	.request_region = pmem_request_smi_region,
 	.release_region = pmem_release_smi_region,
@@ -3469,8 +3469,8 @@ static struct memtype_reserve msm8x60_reserve_table[] __initdata = {
 		.flags	=	MEMTYPE_FLAGS_FIXED,
 	},
 	[MEMTYPE_SMI_ION] = {
-		.start	=	MSM_ION_SMI_BASE,
-		.limit	=	MSM_ION_SMI_SIZE,
+		.start	=	MSM_SMI_BASE,
+		.limit	=	MSM_SMI_SIZE,
 		.flags	=	MEMTYPE_FLAGS_FIXED,
 	},
 	[MEMTYPE_EBI0] = {
@@ -3516,7 +3516,7 @@ static void __init reserve_ion_memory(void)
 {
 	int ret;
 
-	ret = memblock_remove(MSM_ION_SF_BASE, MSM_ION_SF_SIZE);
+	ret = memblock_remove(MSM_PMEM_ADSP_BASE, MSM_PMEM_ADSP_SIZE);
 	BUG_ON(ret);
 }
 
