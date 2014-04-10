@@ -63,6 +63,14 @@ config EARLYSUSPEND
 	  Call early suspend handlers when the user requested sleep state
 	  changes.
 
+config EARLYSUSPEND_BOOST_CPU_SPEED
+	bool "Speed up earlysuspend and lateresume procedure"
+	depends on EARLYSUSPEND && SMP
+	default n
+	---help---
+	Speed up early_suspend and late_resume procedure by enable 2 CPUs
+	and max frequency.
+
 config NO_SUSPEND
 	bool "No suspend"
 	depends on EARLYSUSPEND
