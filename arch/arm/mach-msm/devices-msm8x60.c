@@ -15,7 +15,7 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/consumer.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <mach/irqs.h>
 #include <mach/dma.h>
 #include <asm/mach/mmc.h>
@@ -2311,12 +2311,26 @@ struct msm_vidc_platform_data vidc_platform_data = {
 #ifdef CONFIG_MSM_BUS_SCALING
 	.vidc_bus_client_pdata = &vidc_bus_client_data,
 #endif
-	.enable_ion = 1,
-        .secure_wb_heap = 0,
+#ifdef CONFIG_MSM_VIDC_CONTENT_PROTECTION
+	.cp_enabled = 1,
+#else
 	.cp_enabled = 0,
+#endif
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	.memtype = ION_CP_MM_HEAP_ID,
+	.enable_ion = 1,
+	.secure_wb_heap = 1,
+#else
+	.memtype = MEMTYPE_SMI_KERNEL,
+	.enable_ion = 0,
+	.secure_wb_heap = 0,
+#endif
 	.disable_dmx = 0,
 	.disable_fullhd = 0,
-	.disable_turbo = 0
+	.cont_mode_dpb_count = 8,
+	.disable_turbo = 1,
+	.fw_addr = 0x38000000,
+	.enable_sec_metadata = 0,
 };
 
 struct platform_device msm_device_vidc = {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,9 @@ struct res_trk_context {
 	unsigned int perf_level;
 	struct regulator *footswitch;
 	struct msm_vidc_platform_data *vidc_platform_data;
+	int memtype;
+	int fw_mem_type;
+	int cmd_mem_type;
 #ifdef CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *vidc_bus_client_pdata;
 	uint32_t     pcl;
@@ -50,6 +53,7 @@ struct res_trk_context {
 	struct ion_client *res_ion_client;
 	u32 disable_dmx;
 	u32 disable_fullhd;
+	u32 enable_sec_metadata;
 	enum ddl_mem_area res_mem_type;
 	u32 mmu_clks_on;
 	u32 secure_session;
@@ -72,5 +76,10 @@ struct res_trk_context {
 #define VCDRES_MSG_HIGH(xx_fmt...)	printk(KERN_WARNING "\n" xx_fmt)
 #define VCDRES_MSG_ERROR(xx_fmt...)	printk(KERN_ERR "\n err: " xx_fmt)
 #define VCDRES_MSG_FATAL(xx_fmt...)	printk(KERN_ERR "\n<FATAL> " xx_fmt)
+#define VCDRES_MSG_INFO(xx_fmt...)	printk(KERN_INFO "\n  * " xx_fmt)
 
+#ifdef CONFIG_MSM_BUS_SCALING
+int res_trk_update_bus_perf_level(struct vcd_dev_ctxt *dev_ctxt,
+				u32 perf_level);
+#endif
 #endif
