@@ -47,10 +47,6 @@
 #include <linux/cy8c_tma_ts.h>
 #include "sysinfo-8x60.h"
 
-#ifdef CONFIG_ANDROID_PMEM
-#include <linux/android_pmem.h>
-#endif
-
 #ifdef CONFIG_ION_MSM
 #include <linux/msm_ion.h>
 #include <mach/ion.h>
@@ -1259,28 +1255,6 @@ static struct platform_device android_usb_device = {
 
 #endif
 
-#ifdef CONFIG_MSM_VPE
-static struct resource msm_vpe_resources[] = {
-	{
-		.start	= 0x05300000,
-		.end	= 0x05300000 + SZ_1M - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.start	= INT_VPE,
-		.end	= INT_VPE,
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device msm_vpe_device = {
-	.name = "msm_vpe",
-	.id   = 0,
-	.num_resources = ARRAY_SIZE(msm_vpe_resources),
-	.resource = msm_vpe_resources,
-};
-#endif
-
 #ifdef CONFIG_HTC_BATT8x60
 static struct htc_battery_platform_data htc_battery_pdev_data = {
 	.guage_driver = GUAGE_NONE,
@@ -1316,356 +1290,6 @@ static void config_gpio_table(uint32_t *table, int len)
 		}
 	}
 }
-
-#ifdef CONFIG_MSM_CAMERA
-static uint32_t camera_off_gpio_table[] = {
-	GPIO_CFG(137, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* CAM1_RST# */
-	GPIO_CFG(138, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* CAM2_RST# */
-	GPIO_CFG(140, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* CAM2_PWDN */
-	GPIO_CFG(32, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_16MA),	/* CAM_MCLK */
-	GPIO_CFG(PYRAMID_CAM_I2C_SDA, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_4MA),		/* CAM_I2C_SDA */
-	GPIO_CFG(PYRAMID_CAM_I2C_SCL, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA),		/* CAM_I2C_SCL */
-	GPIO_CFG(141, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* CAM_SEL */
-	GPIO_CFG(PYRAMID_CAM_CAM1_ID, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* CAM_CAM1_ID */
-};
-
-static uint32_t camera_on_gpio_table_workaround[] = {
-	GPIO_CFG(PYRAMID_CAM_I2C_SDA, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_4MA),		/* CAM_I2C_SDA */
-	GPIO_CFG(PYRAMID_CAM_I2C_SCL, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_8MA),		/* CAM_I2C_SCL */
-};
-
-static uint32_t camera_on_gpio_table[] = {
-	GPIO_CFG(PYRAMID_CAM_I2C_SDA, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_4MA),		/* CAM_I2C_SDA */
-	GPIO_CFG(PYRAMID_CAM_I2C_SCL, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA),		/* CAM_I2C_SCL */
-	GPIO_CFG(32, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_16MA),	/* CAM_MCLK */
-	GPIO_CFG(137, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* CAM1_RST# */
-	GPIO_CFG(138, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* CAM2_RST# */
-	GPIO_CFG(140, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* CAM2_PWDN */
-	GPIO_CFG(141, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* CAM_SEL */
-	GPIO_CFG(PYRAMID_CAM_CAM1_ID, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* CAM_CAM1_ID */
-};
-
-static int camera_sensor_power_enable(char *power, unsigned volt)
-{
-	struct regulator *sensor_power;
-	int rc;
-	if (power == NULL)
-		return -ENODEV;
-
-	sensor_power = regulator_get(NULL, power);
-	if (IS_ERR(sensor_power)) {
-		pr_err("[CAM] %s: Unable to get %s\n", __func__, power);
-		return -ENODEV;
-	}
-	rc = regulator_set_voltage(sensor_power, volt, volt);
-	if (rc) {
-		pr_err("[CAM] %s: unable to set %s voltage to %d rc:%d\n",
-			__func__, power, volt, rc);
-	}
-	rc = regulator_enable(sensor_power);
-	if (rc)
-		pr_err("[CAM] %s: Enable regulator %s failed\n", __func__, power);
-
-	regulator_put(sensor_power);
-	return rc;
-}
-
-
-static int camera_sensor_power_disable(char *power)
-{
-	struct regulator *sensor_power;
-	int rc;
-	if (power == NULL)
-		return -ENODEV;
-
-	sensor_power = regulator_get(NULL, power);
-	if (IS_ERR(sensor_power)) {
-		pr_err("[CAM] %s: Unable to get %s\n", __func__, power);
-		return -ENODEV;
-	}
-	rc = regulator_disable(sensor_power);
-	if (rc)
-		pr_err("[CAM] %s: Enable regulator %s failed\n", __func__, power);
-
-	regulator_put(sensor_power);
-	return rc;
-
-}
-
-
-static int Pyramid_sensor_vreg_off(void)
-{
-	int rc;
-	pr_info("[CAM] %s\n", __func__);
-	/* main / 2nd camera digital power */
-	rc = camera_sensor_power_disable("8058_l9");
-	/*pr_info("[CAM] sensor_power_disable(\"8058_l9\") == %d\n", rc);*/
-
-	/* main / 2nd camera analog power */
-	rc = camera_sensor_power_disable("8058_l15");
-	/*pr_info("[CAM] sensor_power_disable(\"8058_l15\") == %d\n", rc);*/
-
-	/* IO power off */
-	rc = camera_sensor_power_disable("8058_l12");
-	/*pr_info("[CAM] sensor_power_disable(\"8058_l12\") == %d\n", rc);*/
-
-	/* main camera VCM power */
-	rc = camera_sensor_power_disable("8058_l10");
-	/*pr_info("[CAM] sensor_power_disable(\"8058_l10\") == %d\n", rc);*/
-
-	mdelay(20);
-
-	return rc;
-}
-
-
-static int Pyramid_sensor_vreg_on(void)
-{
-	static int first_run = 1;
-	int rc;
-	pr_info("[CAM] %s\n", __func__);
-	/* Work-around for PYD power issue */
-	if (first_run == 1) {
-		first_run = 0;
-
-		config_gpio_table(camera_on_gpio_table_workaround,
-			ARRAY_SIZE(camera_on_gpio_table_workaround));
-
-		mdelay(10);
-
-		/* main camera VCM power */
-		rc = camera_sensor_power_enable("8058_l10", 2850000);
-		/*pr_info("[CAM] sensor_power_enable(\"8058_l10\", 2850) == %d\n", rc);*/
-		/*IO*/
-		rc = camera_sensor_power_enable("8058_l12", 1800000);
-		/*pr_info("[CAM] sensor_power_enable(\"8058_l12\", 1800) == %d\n", rc);*/
-		udelay(50);
-		/* main / 2nd camera analog power */
-		rc = camera_sensor_power_enable("8058_l15", 2800000);
-		/*pr_info("[CAM] sensor_power_enable(\"8058_l15\", 2850) == %d\n", rc);*/
-		udelay(50);
-		/* main / 2nd camera digital power */
-		rc = camera_sensor_power_enable("8058_l9", 1800000);
-		/*pr_info("[CAM] sensor_power_enable(\"8058_l9\", 1800) == %d\n", rc);*/
-
-		mdelay(20);
-		pr_info("[CAM] call Pyramid_sensor_vreg_off() at first boot up !!!\n");
-		Pyramid_sensor_vreg_off();
-	}
-
-	/* main camera VCM power */
-	rc = camera_sensor_power_enable("8058_l10", 2850000);
-	/*pr_info("[CAM] sensor_power_enable(\"8058_l10\", 2850) == %d\n", rc);*/
-	/*IO*/
-	rc = camera_sensor_power_enable("8058_l12", 1800000);
-	/*pr_info("[CAM] sensor_power_enable(\"8058_l12\", 1800) == %d\n", rc);*/
-	udelay(50);
-	/* main / 2nd camera analog power */
-	rc = camera_sensor_power_enable("8058_l15", 2800000);
-	/*pr_info("[CAM] sensor_power_enable(\"8058_l15\", 2850) == %d\n", rc);*/
-	udelay(50);
-	/* main / 2nd camera digital power */
-	rc = camera_sensor_power_enable("8058_l9", 1800000);
-	/*pr_info("[CAM] sensor_power_enable(\"8058_l9\", 1800) == %d\n", rc);*/
-
-	mdelay(1);
-
-	return rc;
-}
-
-
-#define CLK_SWITCH 141
-static void Pyramid_maincam_clk_switch(void)
-{
-	int rc = 0;
-	pr_info("[CAM] Doing clk switch (Main Cam)\n");
-	rc = gpio_request(CLK_SWITCH, "s5k3h1gx");
-	if (rc < 0)
-		pr_err("[CAM] GPIO (%d) request fail\n", CLK_SWITCH);
-	else
-		gpio_direction_output(CLK_SWITCH, 0);
-	gpio_free(CLK_SWITCH);
-	return;
-}
-
-static void Pyramid_seccam_clk_switch(void)
-{
-	int rc = 0;
-	pr_info("[CAM] Doing clk switch (2nd Cam)\n");
-	rc = gpio_request(CLK_SWITCH, "mt9v113");
-
-	if (rc < 0)
-		pr_err("[CAM] GPIO (%d) request fail\n", CLK_SWITCH);
-	else
-		gpio_direction_output(CLK_SWITCH, 1);
-
-	gpio_free(CLK_SWITCH);
-	return;
-}
-
-static int pyramid_config_camera_on_gpios(void)
-{
-	config_gpio_table(camera_on_gpio_table,
-		ARRAY_SIZE(camera_on_gpio_table));
-	return 0;
-}
-
-static void pyramid_config_camera_off_gpios(void)
-{
-	config_gpio_table(camera_off_gpio_table,
-		ARRAY_SIZE(camera_off_gpio_table));
-}
-
-static struct msm_camera_device_platform_data msm_camera_device_data = {
-	.camera_gpio_on  = pyramid_config_camera_on_gpios,
-	.camera_gpio_off = pyramid_config_camera_off_gpios,
-	.ioext.csiphy = 0x04800000,
-	.ioext.csisz  = 0x00000400,
-	.ioext.csiirq = CSI_0_IRQ,
-	.ioclk.mclk_clk_rate = 24000000,
-	.ioclk.vfe_clk_rate  = 228570000,
-};
-
-static struct msm_camera_device_platform_data msm_camera_device_data_web_cam = {
-	.camera_gpio_on  = pyramid_config_camera_on_gpios,
-	.camera_gpio_off = pyramid_config_camera_off_gpios,
-	.ioext.csiphy = 0x04900000,
-	.ioext.csisz  = 0x00000400,
-	.ioext.csiirq = CSI_1_IRQ,
-	.ioclk.mclk_clk_rate = 24000000,
-	.ioclk.vfe_clk_rate  = 228570000,
-};
-
-struct resource msm_camera_resources[] = {
-	{
-		.start	= 0x04500000,
-		.end	= 0x04500000 + SZ_1M - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.start	= VFE_IRQ,
-		.end	= VFE_IRQ,
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-int aat1271_flashlight_control(int mode);
-static int flashlight_control(int mode)
-{
-#ifdef CONFIG_FLASHLIGHT_AAT1271
-	return aat1271_flashlight_control(mode);
-#else
-	return 0;
-#endif
-}
-
-static struct msm_camera_sensor_flash_src msm_flash_src = {
-	.flash_sr_type				= MSM_CAMERA_FLASH_SRC_CURRENT_DRIVER,
-	.camera_flash				= flashlight_control,
-};
-
-static struct msm_camera_sensor_flash_data flash_s5k3h1gx = {
-	.flash_type		= MSM_CAMERA_FLASH_LED,
-	.flash_src		= &msm_flash_src
-};
-
-static struct camera_flash_cfg msm_camera_sensor_flash_cfg = {
-	.low_temp_limit		= 5,
-	.low_cap_limit		= 1,
-};
-
-static struct msm_camera_sensor_info msm_camera_sensor_s5k3h1gx_data = {
-	.sensor_name	= "s5k3h1gx",
-	.sensor_reset	= 137,/*Main Cam RST*/
-	.sensor_pwd		= 137,/*139,*/ /*Main Cam PWD*/
-	.vcm_pwd		= 58,/*VCM_PD*/
-	.vcm_enable		= 0,
-	.camera_power_on = Pyramid_sensor_vreg_on,
-	.camera_power_off = Pyramid_sensor_vreg_off,
-	.camera_clk_switch = Pyramid_maincam_clk_switch,
-	.pdata			= &msm_camera_device_data,
-	.resource		= msm_camera_resources,
-	.num_resources	= ARRAY_SIZE(msm_camera_resources),
-	.flash_data		= &flash_s5k3h1gx,
-	.flash_cfg = &msm_camera_sensor_flash_cfg,
-	.power_down_disable = false, /* true: disable pwd down function */
-	.mirror_mode = 1,
-	.cam_select_pin = CLK_SWITCH,
-	.csi_if			= 1,
-	.dev_node		= 0
-};
-
-static struct platform_device msm_camera_sensor_s5k3h1gx = {
-	.name	= "msm_camera_s5k3h1gx",
-	.dev	= {
-		.platform_data = &msm_camera_sensor_s5k3h1gx_data,
-	},
-};
-
-static struct msm_camera_sensor_flash_data flash_mt9v113 = {
-	.flash_type		= MSM_CAMERA_FLASH_NONE,
-};
-
-static struct msm_camera_sensor_info msm_camera_sensor_mt9v113_data = {
-	.sensor_name	= "mt9v113",
-	.sensor_reset	= 138,/*2nd Cam RST*/
-	.sensor_pwd		= 140,/*2nd Cam PWD*/
-	.camera_clk_switch = Pyramid_seccam_clk_switch,
-	.camera_power_on = Pyramid_sensor_vreg_on,
-	.camera_power_off = Pyramid_sensor_vreg_off,
-	.pdata			= &msm_camera_device_data_web_cam,
-	.resource		= msm_camera_resources,
-	.num_resources	= ARRAY_SIZE(msm_camera_resources),
-	.flash_data             = &flash_mt9v113,
-	.power_down_disable = false, /* true: disable pwd down function */
-	.mirror_mode = 1,
-	.cam_select_pin = CLK_SWITCH,
-	.csi_if			= 1,
-	.dev_node		= 1
-};
-
-static void __init msm8x60_init_camera(void)
-{
-	msm_camera_sensor_webcam.name = "msm_camera_webcam";
-	msm_camera_sensor_webcam.dev.platform_data = &msm_camera_sensor_mt9v113_data;
-}
-
-static struct i2c_board_info msm_camera_boardinfo[] __initdata = {
-	#ifdef CONFIG_MT9E013
-	{
-		I2C_BOARD_INFO("mt9e013", 0x6C >> 2),
-	},
-	#endif
-	#ifdef CONFIG_IMX074
-	{
-		I2C_BOARD_INFO("imx074", 0x1A),
-	},
-	#endif
-	#ifdef CONFIG_WEBCAM_OV7692
-	{
-		I2C_BOARD_INFO("ov7692", 0x78),
-	},
-	#endif
-	#ifdef CONFIG_WEBCAM_OV9726
-	{
-		I2C_BOARD_INFO("ov9726", 0x10),
-	},
-	#endif
-	#ifdef CONFIG_QS_S5K4E1
-	{
-		I2C_BOARD_INFO("qs_s5k4e1", 0x20),
-	},
-	#endif
-	#ifdef CONFIG_S5K3H1GX
-	{
-		I2C_BOARD_INFO("s5k3h1gx", 0x20 >> 1),
-	},
-	#endif
-	{
-		I2C_BOARD_INFO("mt9v113", 0x3C),
-	},
-};
-#endif
 
 #ifdef CONFIG_MSM_GEMINI
 static struct resource msm_gemini_resources[] = {
@@ -1881,27 +1505,6 @@ static struct platform_device msm_batt_device = {
 };
 #endif
 
-static unsigned pmem_adsp_size = MSM_PMEM_ADSP_SIZE;
-
-static int __init pmem_adsp_size_setup(char *p)
-{
-	pmem_adsp_size = memparse(p, NULL);
-	return 0;
-}
-early_param("pmem_adsp_size", pmem_adsp_size_setup);
-
-static struct android_pmem_platform_data android_pmem_adsp_pdata = {
-	.name = "pmem_adsp",
-	.allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
-	.cached = 1,
-};
-
-static struct platform_device android_pmem_adsp_device = {
-	.name = "android_pmem",
-	.id = 2,
-	.dev = { .platform_data = &android_pmem_adsp_pdata },
-};
-
 #define PMEM_BUS_WIDTH(_bw) \
 	{ \
 		.vectors = &(struct msm_bus_vectors){ \
@@ -1912,18 +1515,24 @@ static struct platform_device android_pmem_adsp_device = {
 		}, \
 	.num_paths = 1, \
 	}
-static struct msm_bus_paths pmem_smi_table[] = {
+
+static struct msm_bus_paths mem_smi_table[] = {
 	[0] = PMEM_BUS_WIDTH(0), /* Off */
 	[1] = PMEM_BUS_WIDTH(1), /* On */
 };
 
 static struct msm_bus_scale_pdata smi_client_pdata = {
-	.usecase = pmem_smi_table,
-	.num_usecases = ARRAY_SIZE(pmem_smi_table),
-	.name = "pmem_smi",
+	.usecase = mem_smi_table,
+	.num_usecases = ARRAY_SIZE(mem_smi_table),
+	.name = "mem_smi",
 };
 
-static int pmem_request_smi_region(void *data)
+void *setup_smi_region(void)
+{
+	return (void *)msm_bus_scale_register_client(&smi_client_pdata);
+}
+
+static int request_smi_region(void *data)
 {
 	int bus_id = (int) data;
 
@@ -1932,30 +1541,11 @@ static int pmem_request_smi_region(void *data)
 	return 0;
 }
 
-static int pmem_release_smi_region(void *data)
+static int release_smi_region(void *data)
 {
 	int bus_id = (int) data;
 
 	msm_bus_scale_client_update_request(bus_id, 0);
-
-	return 0;
-}
-
-void *pmem_setup_smi_region(void)
-{
-	return (void *)msm_bus_scale_register_client(&smi_client_pdata);
-}
-
-static int request_smi_region(void *data)
-{
-	pmem_request_smi_region(data);
-
-	return 0;
-}
-
-static int release_smi_region(void *data)
-{
-	pmem_release_smi_region(data);
 
 	return 0;
 }
@@ -1965,7 +1555,7 @@ static struct ion_cp_heap_pdata cp_mm_ion_pdata = {
 	.align = PAGE_SIZE,
 	.request_region = request_smi_region,
 	.release_region = release_smi_region,
-	.setup_region = pmem_setup_smi_region,
+	.setup_region = setup_smi_region,
 };
 
 static struct ion_cp_heap_pdata cp_mfc_ion_pdata = {
@@ -2106,22 +1696,6 @@ static struct platform_device *hdmi_devices[] __initdata = {
 	&hdmi_msm_device,
 };
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
-
-static struct android_pmem_platform_data android_pmem_smipool_pdata = {
-	.name = "pmem_smipool",
-	.allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
-	.cached = 0,
-	.memory_type = MEMTYPE_SMI,
-	.request_region = pmem_request_smi_region,
-	.release_region = pmem_release_smi_region,
-	.setup_region = pmem_setup_smi_region,
-	.map_on_demand = 1,
-};
-static struct platform_device android_pmem_smipool_device = {
-	.name = "android_pmem",
-	.id = 7,
-	.dev = { .platform_data = &android_pmem_smipool_pdata },
-};
 
 static void __init msm8x60_allocate_memory_regions(void)
 {
@@ -3378,26 +2952,12 @@ static struct platform_device *pyramid_devices[] __initdata = {
 #ifdef CONFIG_BATTERY_MSM
 	&msm_batt_device,
 #endif
-#ifdef CONFIG_ANDROID_PMEM
-	&android_pmem_adsp_device,
-	&android_pmem_smipool_device,
-#endif
 #ifdef CONFIG_MSM_ROTATOR
 	&msm_rotator_device,
 #endif
 	&msm_kgsl_3d0,
-#ifdef CONFIG_MSM_CAMERA
-#ifdef CONFIG_S5K3H1GX
-	&msm_camera_sensor_s5k3h1gx,
-#endif
-	&msm_camera_sensor_webcam,
-
-#endif
 #ifdef CONFIG_MSM_GEMINI
 	&msm_gemini_device,
-#endif
-#ifdef CONFIG_MSM_VPE
-	&msm_vpe_device,
 #endif
 
 #if defined(CONFIG_MSM_RPM_LOG) || defined(CONFIG_MSM_RPM_LOG_MODULE)
@@ -3450,25 +3010,7 @@ static struct platform_device *pyramid_devices[] __initdata = {
 };
 
 static struct memtype_reserve msm8x60_reserve_table[] __initdata = {
-	/* Kernel SMI memory pool for video core, used for firmware */
-	/* and encoder, decoder scratch buffers */
-	/* Kernel SMI memory pool should always precede the user space */
-	/* SMI memory pool, as the video core will use offset address */
-	/* from the Firmware base */
-	[MEMTYPE_SMI_KERNEL] = {
-		.start	=	KERNEL_SMI_BASE,
-		.limit	=	KERNEL_SMI_SIZE,
-		.size	=	KERNEL_SMI_SIZE,
-		.flags	=	MEMTYPE_FLAGS_FIXED,
-	},
-	/* User space SMI memory pool for video core */
-	/* used for encoder, decoder input & output buffers  */
 	[MEMTYPE_SMI] = {
-		.start	=	USER_SMI_BASE,
-		.limit	=	USER_SMI_SIZE,
-		.flags	=	MEMTYPE_FLAGS_FIXED,
-	},
-	[MEMTYPE_SMI_ION] = {
 		.start	=	MSM_SMI_BASE,
 		.limit	=	MSM_SMI_SIZE,
 		.flags	=	MEMTYPE_FLAGS_FIXED,
@@ -3480,37 +3022,6 @@ static struct memtype_reserve msm8x60_reserve_table[] __initdata = {
 		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
 	},
 };
-
-static void __init size_pmem_device(struct android_pmem_platform_data *pdata, unsigned long start, unsigned long size)
-{
-	pdata->start = start;
-	pdata->size = size;
-	pr_info("%s: allocating %lu bytes at 0x%p (0x%lx physical) for %s\n",
-		__func__, size, __va(start), start, pdata->name);
-}
-
-static void __init size_pmem_devices(void)
-{
-	size_pmem_device(&android_pmem_adsp_pdata, MSM_PMEM_ADSP_BASE, pmem_adsp_size);
-	size_pmem_device(&android_pmem_smipool_pdata, USER_SMI_BASE, USER_SMI_SIZE);
-}
-
-static void __init reserve_memory_for(struct android_pmem_platform_data *p)
-{
-	/* If we have set a pre-defined PMEM start base,
-	 * no need to reserve it in system again.
-	 */
-	if (p->start == 0) {
-		pr_info("%s: reserving %lx bytes in memory pool for %s.\n", __func__, p->size, p->name);
-		msm8x60_reserve_table[p->memory_type].size += p->size;
-	}
-}
-
-static void __init reserve_pmem_memory(void)
-{
-	reserve_memory_for(&android_pmem_adsp_pdata);
-	reserve_memory_for(&android_pmem_smipool_pdata);
-}
 
 static void __init reserve_ion_memory(void)
 {
@@ -3529,8 +3040,6 @@ static void __init reserve_mdp_memory(void);
 
 static void __init msm8x60_calculate_reserve_sizes(void)
 {
-	size_pmem_devices();
-	reserve_pmem_memory();
 	reserve_ion_memory();
 	reserve_mdp_memory();
 }
@@ -4736,14 +4245,6 @@ static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
 	},
 #endif
 #endif /*CONFIG_MSM_SSBI */
-#ifdef CONFIG_MSM_CAMERA
-    {
-		I2C_SURF | I2C_FFA,
-		MSM_GSBI4_QUP_I2C_BUS_ID,
-		msm_camera_boardinfo,
-		ARRAY_SIZE(msm_camera_boardinfo),
-	},
-#endif
 #if HASTIMPANI
 	{
 		I2C_SURF | I2C_FFA | I2C_FLUID,
@@ -6243,7 +5744,6 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	msm8x60_init_gpiomux(board_data->gpiomux_cfgs);
 	msm8x60_init_uart12dm();
 	msm8x60_init_mmc();
-	msm8x60_init_camera();
 
 #if defined(CONFIG_PMIC8058_OTHC) || defined(CONFIG_PMIC8058_OTHC_MODULE)
 	msm8x60_init_pm8058_othc();
