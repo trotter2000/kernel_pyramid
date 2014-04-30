@@ -14,6 +14,7 @@
 #include "msm.h"
 #include "msm_ispif.h"
 #include "msm_camera_i2c_mux.h"
+#include <linux/kthread.h>
 
 #ifdef CONFIG_RAWCHIP
 #include "rawchip/rawchip.h"
