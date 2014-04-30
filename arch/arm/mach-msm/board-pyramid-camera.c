@@ -1,6 +1,8 @@
 /* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  * Copyright (c) 2013 Sebastian Sobczyk <sebastiansobczyk@wp.pl>
  *
+ * Copyright (c) 2014 Sultanxda <sultanxda@gmail.com>
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -31,8 +33,8 @@
 #include <linux/leds.h>
 #endif
 
-static int camera_sensor_power_enable(char *power, unsigned volt, struct regulator **sensor_power);
-static int camera_sensor_power_disable(struct regulator *sensor_power);
+static int camera_sensor_power_enable(char *power, unsigned volt);
+static int camera_sensor_power_disable(char *power);
 static struct platform_device msm_camera_server = {
 	.name = "msm_cam_server",
 	.id = 0,
@@ -273,65 +275,48 @@ static struct msm_camera_sensor_flash_src msm_flash_src = {
 };
 #endif
 
-static struct regulator *pyramid_reg_8058_l9 = NULL;
-static struct regulator *pyramid_reg_8058_l10 = NULL;
-static struct regulator *pyramid_reg_8058_l12 = NULL;
-static struct regulator *pyramid_reg_8058_l15 = NULL;
-
-static int camera_sensor_power_enable(char *power, unsigned volt, struct regulator **sensor_power)
+static int camera_sensor_power_enable(char *power, unsigned volt)
 {
+	struct regulator *sensor_power;
 	int rc;
-
 	if (power == NULL)
 		return -ENODEV;
 
-	*sensor_power = regulator_get(NULL, power);
-
-	if (IS_ERR(*sensor_power)) {
-		pr_info("%s: failed to Unable to get %s\n", __func__, power);
+	sensor_power = regulator_get(NULL, power);
+	if (IS_ERR(sensor_power)) {
+		pr_err("[CAM] %s: Unable to get %s\n", __func__, power);
 		return -ENODEV;
 	}
-
-	if (volt != 1800000) {
-		rc = regulator_set_voltage(*sensor_power, volt, volt);
-		if (rc < 0) {
-			pr_info("%s: failed to unable to set %s voltage to %d rc:%d\n",
-					__func__, power, volt, rc);
-			regulator_put(*sensor_power);
-			*sensor_power = NULL;
-			return -ENODEV;
-		}
+	rc = regulator_set_voltage(sensor_power, volt, volt);
+	if (rc) {
+		pr_err("[CAM] %s: unable to set %s voltage to %d rc:%d\n",
+			__func__, power, volt, rc);
 	}
+	rc = regulator_enable(sensor_power);
+	if (rc)
+		pr_err("[CAM] %s: Enable regulator %s failed\n", __func__, power);
 
-	rc = regulator_enable(*sensor_power);
-	if (rc < 0) {
-		pr_info("%s: failed to Enable regulator %s failed\n", __func__, power);
-		regulator_put(*sensor_power);
-		*sensor_power = NULL;
-		return -ENODEV;
-	}
-
+	regulator_put(sensor_power);
 	return rc;
 }
 
-static int camera_sensor_power_disable(struct regulator *sensor_power)
+static int camera_sensor_power_disable(char *power)
 {
-
+	struct regulator *sensor_power;
 	int rc;
-	if (sensor_power == NULL)
+	if (power == NULL)
 		return -ENODEV;
 
+	sensor_power = regulator_get(NULL, power);
 	if (IS_ERR(sensor_power)) {
-		pr_info("%s: failed to Invalid requlator ptr\n", __func__);
+		pr_err("[CAM] %s: Unable to get %s\n", __func__, power);
 		return -ENODEV;
 	}
-
 	rc = regulator_disable(sensor_power);
-	if (rc < 0)
-		pr_info("%s: disable regulator failed\n", __func__);
+	if (rc)
+		pr_err("[CAM] %s: Enable regulator %s failed\n", __func__, power);
 
 	regulator_put(sensor_power);
-	sensor_power = NULL;
 	return rc;
 }
 
@@ -406,7 +391,7 @@ static int pyramid_s5k3h1gx_vreg_on(void)
 
 		mdelay(10);
 
-		rc = camera_sensor_power_enable("8058_l10", 2850000, &pyramid_reg_8058_l10);
+		rc = camera_sensor_power_enable("8058_l10", 2850000);
 		pr_info("[CAM] sensor_power_enable(\"8058_l10\", 2.8V) == %d\n", rc);
 		if (rc < 0) {
 			pr_err("[CAM] sensor_power_enable(\"8058_l10\", 2.8V) FAILED %d\n", rc);
@@ -414,7 +399,7 @@ static int pyramid_s5k3h1gx_vreg_on(void)
 		}
 		udelay(50);
 
-		rc = camera_sensor_power_enable("8058_l12", 1800000, &pyramid_reg_8058_l12);
+		rc = camera_sensor_power_enable("8058_l12", 1800000);
 		pr_info("[CAM] sensor_power_enable(\"8058_l12\", 1.8V) == %d\n", rc);
 		if (rc < 0) {
 			pr_err("[CAM] sensor_power_enable(\"8058_l12\", 1.8V) FAILED %d\n", rc);
@@ -422,7 +407,7 @@ static int pyramid_s5k3h1gx_vreg_on(void)
 		}
 		udelay(50);
 
-		rc = camera_sensor_power_enable("8058_l15", 2800000, &pyramid_reg_8058_l15);
+		rc = camera_sensor_power_enable("8058_l15", 2800000);
 		pr_info("[CAM] sensor_power_enable(\"8058_l15\", 2.8V) == %d\n", rc);
 		if (rc < 0) {
 			pr_err("[CAM] sensor_power_enable(\"8058_l15\", 2.8V) FAILED %d\n", rc);
@@ -430,7 +415,7 @@ static int pyramid_s5k3h1gx_vreg_on(void)
 		}
 		udelay(50);
 
-		rc = camera_sensor_power_enable("8058_l9", 1800000, &pyramid_reg_8058_l9);
+		rc = camera_sensor_power_enable("8058_l9", 1800000);
 		pr_info("[CAM] sensor_power_enable(\"8058_l9\", 1.8V) == %d\n", rc);
 		if (rc < 0) {
 			pr_err("[CAM] sensor_power_enable(\"8058_l9\", 1.8V) FAILED %d\n", rc);
@@ -439,7 +424,7 @@ static int pyramid_s5k3h1gx_vreg_on(void)
 
 		mdelay(20);
 
-		rc = camera_sensor_power_disable(pyramid_reg_8058_l9);
+		rc = camera_sensor_power_disable("8058_l9");
 		pr_info("[CAM] camera_sensor_power_disable(\"8058_l9\", 1.8V) == %d\n", rc);
 		if (rc < 0) {
 			pr_err("[CAM] sensor_power_disable(\"8058_l9\") FAILED %d\n", rc);
@@ -447,7 +432,7 @@ static int pyramid_s5k3h1gx_vreg_on(void)
 		}
 		udelay(50);
 	
-		rc = camera_sensor_power_disable(pyramid_reg_8058_l15);
+		rc = camera_sensor_power_disable("8058_l15");
 		pr_info("[CAM] camera_sensor_power_disable(\"8058_l15\", 2.8V) == %d\n", rc);
 		if (rc < 0) {
 			pr_err("[CAM] sensor_power_disable(\"8058_l15\") FAILED %d\n", rc);
@@ -455,7 +440,7 @@ static int pyramid_s5k3h1gx_vreg_on(void)
 		}
 		udelay(50);
 	
-		rc = camera_sensor_power_disable(pyramid_reg_8058_l12);
+		rc = camera_sensor_power_disable("8058_l12");
 		pr_info("[CAM] camera_sensor_power_disable(\"8058_l12\", 1.8V) == %d\n", rc);
 		if (rc < 0) {
 			pr_err("[CAM] sensor_power_disable(\"8058_l12\") FAILED %d\n", rc);
@@ -464,7 +449,7 @@ static int pyramid_s5k3h1gx_vreg_on(void)
 		udelay(50);
 	
 		pr_info("[CAM] camera_sensor_power_disable(\"8058_l10\", 2.8V) == %d\n", rc);
-		rc = camera_sensor_power_disable(pyramid_reg_8058_l10);
+		rc = camera_sensor_power_disable("8058_l10");
 		if (rc < 0) {
 			pr_err("[CAM] sensor_power_disable(\"8058_l10\") FAILED %d\n", rc);
 			goto init_fail;
@@ -473,7 +458,7 @@ static int pyramid_s5k3h1gx_vreg_on(void)
 		mdelay(20);
 	}
 
-	rc = camera_sensor_power_enable("8058_l10", 2850000, &pyramid_reg_8058_l10);
+	rc = camera_sensor_power_enable("8058_l10", 2850000);
 	pr_info("[CAM] sensor_power_enable(\"8058_l10\", 2.8V) == %d\n", rc);
 	if (rc < 0) {
 		pr_err("[CAM] sensor_power_enable(\"8058_l10\", 2.8V) FAILED %d\n", rc);
@@ -481,7 +466,7 @@ static int pyramid_s5k3h1gx_vreg_on(void)
 	}
 	udelay(50);
 
-	rc = camera_sensor_power_enable("8058_l12", 1800000, &pyramid_reg_8058_l12);
+	rc = camera_sensor_power_enable("8058_l12", 1800000);
 	pr_info("[CAM] sensor_power_enable(\"8058_l12\", 1.8V) == %d\n", rc);
 	if (rc < 0) {
 		pr_err("[CAM] sensor_power_enable(\"8058_l12\", 1.8V) FAILED %d\n", rc);
@@ -489,7 +474,7 @@ static int pyramid_s5k3h1gx_vreg_on(void)
 	}
 	udelay(50);
 
-	rc = camera_sensor_power_enable("8058_l15", 2800000, &pyramid_reg_8058_l15);
+	rc = camera_sensor_power_enable("8058_l15", 2800000);
 	pr_info("[CAM] sensor_power_enable(\"8058_l15\", 2.8V) == %d\n", rc);
 	if (rc < 0) {
 		pr_err("[CAM] sensor_power_enable(\"8058_l15\", 2.8V) FAILED %d\n", rc);
@@ -497,7 +482,7 @@ static int pyramid_s5k3h1gx_vreg_on(void)
 	}
 	udelay(50);
 
-	rc = camera_sensor_power_enable("8058_l9", 1800000, &pyramid_reg_8058_l9);
+	rc = camera_sensor_power_enable("8058_l9", 1800000);
 	pr_info("[CAM] sensor_power_enable(\"8058_l9\", 1.8V) == %d\n", rc);
 	if (rc < 0) {
 		pr_err("[CAM] sensor_power_enable(\"8058_l9\", 1.8V) FAILED %d\n", rc);
@@ -516,7 +501,7 @@ static int pyramid_s5k3h1gx_vreg_off(void)
 
 	pr_info("[CAM] %s\n", __func__);
 
-	rc = camera_sensor_power_disable(pyramid_reg_8058_l9);
+	rc = camera_sensor_power_disable("8058_l9");
 	pr_info("[CAM] camera_sensor_power_disable(\"8058_l9\", 1.8V) == %d\n", rc);
 	if (rc < 0) {
 		pr_err("[CAM] sensor_power_disable(\"8058_l9\") FAILED %d\n", rc);
@@ -524,7 +509,7 @@ static int pyramid_s5k3h1gx_vreg_off(void)
 	}
 	udelay(50);
 	
-	rc = camera_sensor_power_disable(pyramid_reg_8058_l15);
+	rc = camera_sensor_power_disable("8058_l15");
 	pr_info("[CAM] camera_sensor_power_disable(\"8058_l15\", 2.8V) == %d\n", rc);
 	if (rc < 0) {
 		pr_err("[CAM] sensor_power_disable(\"8058_l15\") FAILED %d\n", rc);
@@ -532,7 +517,7 @@ static int pyramid_s5k3h1gx_vreg_off(void)
 	}
 	udelay(50);
 	
-	rc = camera_sensor_power_disable(pyramid_reg_8058_l12);
+	rc = camera_sensor_power_disable("8058_l12");
 	pr_info("[CAM] camera_sensor_power_disable(\"8058_l12\", 1.8V) == %d\n", rc);
 	if (rc < 0) {
 		pr_err("[CAM] sensor_power_disable(\"8058_l12\") FAILED %d\n", rc);
@@ -541,7 +526,7 @@ static int pyramid_s5k3h1gx_vreg_off(void)
 	udelay(50);
 	
 	pr_info("[CAM] camera_sensor_power_disable(\"8058_l10\", 2.8V) == %d\n", rc);
-	rc = camera_sensor_power_disable(pyramid_reg_8058_l10);
+	rc = camera_sensor_power_disable("8058_l10");
 	if (rc < 0) {
 		pr_err("[CAM] sensor_power_disable(\"8058_l10\") FAILED %d\n", rc);
 		goto init_fail;
@@ -608,7 +593,7 @@ static int pyramid_mt9v113_vreg_on(void)
 
 	pr_info("[CAM] %s\n", __func__);
 
-	rc = camera_sensor_power_enable("8058_l10", 2850000, &pyramid_reg_8058_l10);
+	rc = camera_sensor_power_enable("8058_l10", 2850000);
 	pr_info("[CAM] sensor_power_enable(\"8058_l10\", 2.8V) == %d\n", rc);
 	if (rc < 0) {
 		pr_err("[CAM] sensor_power_enable(\"8058_l10\", 2.8V) FAILED %d\n", rc);
@@ -616,7 +601,7 @@ static int pyramid_mt9v113_vreg_on(void)
 	}
 	udelay(50);
 
-	rc = camera_sensor_power_enable("8058_l12", 1800000, &pyramid_reg_8058_l12);
+	rc = camera_sensor_power_enable("8058_l12", 1800000);
 	pr_info("[CAM] sensor_power_enable(\"8058_l12\", 1.8V) == %d\n", rc);
 	if (rc < 0) {
 		pr_err("[CAM] sensor_power_enable(\"8058_l12\", 1.8V) FAILED %d\n", rc);
@@ -624,7 +609,7 @@ static int pyramid_mt9v113_vreg_on(void)
 	}
 	udelay(50);
 
-	rc = camera_sensor_power_enable("8058_l15", 2800000, &pyramid_reg_8058_l15);
+	rc = camera_sensor_power_enable("8058_l15", 2800000);
 	pr_info("[CAM] sensor_power_enable(\"8058_l15\", 2.8V) == %d\n", rc);
 	if (rc < 0) {
 		pr_err("[CAM] sensor_power_enable(\"8058_l15\", 2.8V) FAILED %d\n", rc);
@@ -632,7 +617,7 @@ static int pyramid_mt9v113_vreg_on(void)
 	}
 	udelay(50);
 
-	rc = camera_sensor_power_enable("8058_l9", 1800000, &pyramid_reg_8058_l9);
+	rc = camera_sensor_power_enable("8058_l9", 1800000);
 	pr_info("[CAM] sensor_power_enable(\"8058_l9\", 1.8V) == %d\n", rc);
 	if (rc < 0) {
 		pr_err("[CAM] sensor_power_enable(\"8058_l9\", 1.8V) FAILED %d\n", rc);
@@ -660,7 +645,7 @@ static int pyramid_mt9v113_vreg_off(void)
 
 	pr_info("[CAM] %s\n", __func__);
 
-	rc = camera_sensor_power_disable(pyramid_reg_8058_l9);
+	rc = camera_sensor_power_disable("8058_l9");
 	pr_info("[CAM] camera_sensor_power_disable(\"8058_l9\", 1.8V) == %d\n", rc);
 	if (rc < 0) {
 		pr_err("[CAM] sensor_power_disable(\"8058_l9\") FAILED %d\n", rc);
@@ -668,7 +653,7 @@ static int pyramid_mt9v113_vreg_off(void)
 	}
 	udelay(50);
 	
-	rc = camera_sensor_power_disable(pyramid_reg_8058_l15);
+	rc = camera_sensor_power_disable("8058_l15");
 	pr_info("[CAM] camera_sensor_power_disable(\"8058_l15\", 2.8V) == %d\n", rc);
 	if (rc < 0) {
 		pr_err("[CAM] sensor_power_disable(\"8058_l15\") FAILED %d\n", rc);
@@ -676,7 +661,7 @@ static int pyramid_mt9v113_vreg_off(void)
 	}
 	udelay(50);
 	
-	rc = camera_sensor_power_disable(pyramid_reg_8058_l12);
+	rc = camera_sensor_power_disable("8058_l12");
 	pr_info("[CAM] camera_sensor_power_disable(\"8058_l12\", 1.8V) == %d\n", rc);
 	if (rc < 0) {
 		pr_err("[CAM] sensor_power_disable(\"8058_l12\") FAILED %d\n", rc);
@@ -685,7 +670,7 @@ static int pyramid_mt9v113_vreg_off(void)
 	udelay(50);
 	
 	pr_info("[CAM] camera_sensor_power_disable(\"8058_l10\", 2.8V) == %d\n", rc);
-	rc = camera_sensor_power_disable(pyramid_reg_8058_l10);
+	rc = camera_sensor_power_disable("8058_l10");
 	if (rc < 0) {
 		pr_err("[CAM] sensor_power_disable(\"8058_l10\") FAILED %d\n", rc);
 		goto init_fail;
