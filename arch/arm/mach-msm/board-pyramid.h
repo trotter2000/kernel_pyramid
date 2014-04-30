@@ -21,6 +21,7 @@
 
 #include <mach/board.h>
 #include <mach/msm_memtypes.h>
+#include <mach/board-msm8660.h>
 
 #define MSM_RAM_CONSOLE_BASE	MSM_HTC_RAM_CONSOLE_PHYS
 #define MSM_RAM_CONSOLE_SIZE	MSM_HTC_RAM_CONSOLE_SIZE

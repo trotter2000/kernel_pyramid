@@ -5744,6 +5744,7 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	msm8x60_init_gpiomux(board_data->gpiomux_cfgs);
 	msm8x60_init_uart12dm();
 	msm8x60_init_mmc();
+        msm8x60_init_cam();
 
 #if defined(CONFIG_PMIC8058_OTHC) || defined(CONFIG_PMIC8058_OTHC_MODULE)
 	msm8x60_init_pm8058_othc();
