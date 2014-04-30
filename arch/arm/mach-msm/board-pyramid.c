@@ -1630,6 +1630,15 @@ static struct ion_platform_heap pyramid_heaps[] = {
 		.extra_data = (void *) &co_ion_pdata,
 	},
 	{
+		.id	= ION_CAMERA_HEAP_ID,
+		.type	= ION_HEAP_TYPE_CARVEOUT,
+		.name	= ION_CAMERA_HEAP_NAME,
+		.size	= MSM_ION_CAMERA_SIZE,
+		.base	= MSM_ION_CAMERA_BASE,
+		.memory_type = ION_EBI_TYPE,
+		.extra_data = &co_ion_pdata,
+	},
+	{
 		.id	= ION_AUDIO_HEAP_ID,
 		.type	= ION_HEAP_TYPE_CARVEOUT,
 		.name	= ION_AUDIO_HEAP_NAME,
