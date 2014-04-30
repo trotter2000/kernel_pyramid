@@ -1633,8 +1633,8 @@ static struct ion_platform_heap pyramid_heaps[] = {
 		.id	= ION_CAMERA_HEAP_ID,
 		.type	= ION_HEAP_TYPE_CARVEOUT,
 		.name	= ION_CAMERA_HEAP_NAME,
-		.size	= MSM_ION_CAMERA_SIZE,
 		.base	= MSM_ION_CAMERA_BASE,
+		.size	= MSM_ION_CAMERA_SIZE,
 		.memory_type = ION_EBI_TYPE,
 		.extra_data = &co_ion_pdata,
 	},
@@ -3032,14 +3032,6 @@ static struct memtype_reserve msm8x60_reserve_table[] __initdata = {
 	},
 };
 
-static void __init reserve_ion_memory(void)
-{
-	int ret;
-
-	ret = memblock_remove(MSM_PMEM_ADSP_BASE, MSM_PMEM_ADSP_SIZE);
-	BUG_ON(ret);
-}
-
 static void __init reserve_mdp_memory(void)
 {
 	pyramid_mdp_writeback(msm8x60_reserve_table);
@@ -3049,7 +3041,6 @@ static void __init reserve_mdp_memory(void);
 
 static void __init msm8x60_calculate_reserve_sizes(void)
 {
-	reserve_ion_memory();
 	reserve_mdp_memory();
 }
 
@@ -5855,9 +5846,13 @@ static void __init pyramid_fixup(struct machine_desc *desc, struct tag *tags,
                                  char **cmdline, struct meminfo *mi)
 {
 	engineerid = parse_tag_engineerid(tags);
-        mi->nr_banks = 1;
+        mi->nr_banks = 3;
         mi->bank[0].start = PHY_BASE_ADDR1;
         mi->bank[0].size = SIZE_ADDR1;
+        mi->bank[1].start = PHY_BASE_ADDR2;
+        mi->bank[1].size = SIZE_ADDR2;
+        mi->bank[2].start = PHY_BASE_ADDR3;
+        mi->bank[2].size = SIZE_ADDR3;
 }
 
 MACHINE_START(PYRAMID, "pyramid")
