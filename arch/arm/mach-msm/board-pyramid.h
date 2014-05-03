@@ -30,7 +30,7 @@
 #define MSM_ION_HEAP_NUM      8
 
 #define MSM_SMI_BASE          0x38000000
-#define MSM_SMI_SIZE          0x3900000
+#define MSM_SMI_SIZE          0x4000000
 
 #define MSM_FB_SIZE           roundup((960 * ALIGN(540, 32) * 4 * 3), 4096)
 #define MSM_ION_WB_SIZE       0x300000
