@@ -35,7 +35,7 @@
 #define MSM_FB_SIZE           roundup((960 * ALIGN(540, 32) * 4 * 3), 4096)
 #define MSM_ION_WB_SIZE       0x300000
 #define MSM_ION_AUDIO_SIZE    0x500000
-#define MSM_ION_CAMERA_SIZE   0x1200000
+#define MSM_ION_CAMERA_SIZE   0x600000
 #define MSM_ION_SF_SIZE       0x2A00000
 #define MSM_ION_MM_FW_SIZE    0x200000
 #define MSM_ION_MM_SIZE       0x3D00000
@@ -49,14 +49,14 @@
 #define MSM_ION_SF_BASE       0x48000000
 #define MSM_ION_AUDIO_BASE    0x6FB00000
 
-#define PHY_BASE_ADDR1        0x41600000
-#define SIZE_ADDR1            0x1800000
+#define PHY_BASE_ADDR1        0x40A00000
+#define SIZE_ADDR1            0x2400000
 
-#define PHY_BASE_ADDR2        0x45C00000
-#define SIZE_ADDR2            0x500000
+#define PHY_BASE_ADDR2        0x4AA00000
+#define SIZE_ADDR2            0x25100000
 
-#define PHY_BASE_ADDR3        0x4AA00000
-#define SIZE_ADDR3            0x25100000
+#define PHY_BASE_ADDR3        0x45C00000
+#define SIZE_ADDR3            0x500000
 
 /* GPIO definition */
 
