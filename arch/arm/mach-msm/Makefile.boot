@@ -70,9 +70,9 @@ initrd_phys-$(CONFIG_ARCH_QSD8X50)	:= 0x24000000
 endif
 
 # MSM8x60
-   zreladdr-$(CONFIG_ARCH_MSM8X60)	:= 0x40A08000
-   params_phys-$(CONFIG_ARCH_MSM8X60)	:= 0x40A00100
-   initrd_phys-$(CONFIG_ARCH_MSM8X60)	:= 0x41A00000
+   zreladdr-$(CONFIG_ARCH_MSM8X60)	:= 0x48008000
+   params_phys-$(CONFIG_ARCH_MSM8X60)	:= 0x48000100
+   initrd_phys-$(CONFIG_ARCH_MSM8X60)	:= 0x49000000
    zreladdr-$(CONFIG_MACH_SHOOTER_CT)	:= 0x48808000
    params_phys-$(CONFIG_MACH_SHOOTER_CT):= 0x48800100
    initrd_phys-$(CONFIG_MACH_SHOOTER_CT):= 0x49800000

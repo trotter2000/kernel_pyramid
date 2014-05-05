@@ -27,7 +27,7 @@
 #define MSM_RAM_CONSOLE_SIZE	MSM_HTC_RAM_CONSOLE_SIZE
 
 /* Memory map */
-#define MSM_ION_HEAP_NUM      8
+#define MSM_ION_HEAP_NUM      7
 
 #define MSM_SMI_BASE          0x38000000
 #define MSM_SMI_SIZE          0x4000000
@@ -35,7 +35,6 @@
 #define MSM_FB_SIZE           roundup((960 * ALIGN(540, 32) * 4 * 3), 4096)
 #define MSM_ION_WB_SIZE       0x300000
 #define MSM_ION_AUDIO_SIZE    0x500000
-#define MSM_ION_CAMERA_SIZE   0x600000
 #define MSM_ION_SF_SIZE       0x2A00000
 #define MSM_ION_MM_FW_SIZE    0x200000
 #define MSM_ION_MM_SIZE       0x3D00000
@@ -44,19 +43,12 @@
 #define MSM_ION_MM_FW_BASE    0x38000000
 #define MSM_ION_MM_BASE       0x38200000
 #define MSM_ION_MFC_BASE      0x3BF00000
-#define MSM_ION_CAMERA_BASE   0x40400000
+#define MSM_ION_SF_BASE       0x40400000
+#define MSM_ION_AUDIO_BASE    0x45C00000
 #define MSM_ION_WB_BASE       0x46400000
-#define MSM_ION_SF_BASE       0x48000000
-#define MSM_ION_AUDIO_BASE    0x6FB00000
 
-#define PHY_BASE_ADDR1        0x40A00000
-#define SIZE_ADDR1            0x2400000
-
-#define PHY_BASE_ADDR2        0x4AA00000
-#define SIZE_ADDR2            0x25100000
-
-#define PHY_BASE_ADDR3        0x45C00000
-#define SIZE_ADDR3            0x500000
+#define PHY_BASE_ADDR1        0x48000000
+#define SIZE_ADDR1            0x28000000
 
 /* GPIO definition */
 

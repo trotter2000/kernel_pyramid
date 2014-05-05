@@ -1630,15 +1630,6 @@ static struct ion_platform_heap pyramid_heaps[] = {
 		.extra_data = (void *) &co_ion_pdata,
 	},
 	{
-		.id	= ION_CAMERA_HEAP_ID,
-		.type	= ION_HEAP_TYPE_CARVEOUT,
-		.name	= ION_CAMERA_HEAP_NAME,
-		.base	= MSM_ION_CAMERA_BASE,
-		.size	= MSM_ION_CAMERA_SIZE,
-		.memory_type = ION_EBI_TYPE,
-		.extra_data = &co_ion_pdata,
-	},
-	{
 		.id	= ION_AUDIO_HEAP_ID,
 		.type	= ION_HEAP_TYPE_CARVEOUT,
 		.name	= ION_AUDIO_HEAP_NAME,
@@ -5846,13 +5837,9 @@ static void __init pyramid_fixup(struct machine_desc *desc, struct tag *tags,
                                  char **cmdline, struct meminfo *mi)
 {
 	engineerid = parse_tag_engineerid(tags);
-        mi->nr_banks = 3;
+        mi->nr_banks = 1;
         mi->bank[0].start = PHY_BASE_ADDR1;
         mi->bank[0].size = SIZE_ADDR1;
-        mi->bank[1].start = PHY_BASE_ADDR2;
-        mi->bank[1].size = SIZE_ADDR2;
-        mi->bank[2].start = PHY_BASE_ADDR3;
-        mi->bank[2].size = SIZE_ADDR3;
 }
 
 MACHINE_START(PYRAMID, "pyramid")
