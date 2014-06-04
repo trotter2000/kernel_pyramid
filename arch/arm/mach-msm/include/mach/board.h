@@ -811,6 +811,7 @@ extern unsigned int msm_shared_ram_phys; /* defined in arch/arm/mach-msm/io.c */
 
 extern int emmc_partition_read_proc(char *page, char **start, off_t off,
 				int count, int *eof, void *data);
+extern const char *get_partition_name_by_num(int partnum);
 
 #ifdef CONFIG_ARCH_MSM8X60
 extern int processor_name_read_proc(char *page, char **start, off_t off,
