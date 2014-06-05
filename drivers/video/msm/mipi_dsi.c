@@ -1,6 +1,4 @@
-/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
- *
- * Copyright (c) 2014 Sultanxda <sultanxda@gmail.com>
+/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,15 +24,11 @@
 #include <linux/uaccess.h>
 #include <linux/clk.h>
 #include <linux/platform_device.h>
-#include <linux/mfd/pmic8058.h>
 #include <asm/system.h>
 #include <asm/mach-types.h>
 #include <mach/hardware.h>
 #include <mach/gpio.h>
 #include <mach/clk.h>
-#include <mach/debug_display.h>
-
-#include <../../../arch/arm/mach-msm/board-pyramid.h>
 
 #include "msm_fb.h"
 #include "mipi_dsi.h"
@@ -51,6 +45,8 @@ static int mipi_dsi_remove(struct platform_device *pdev);
 
 static int mipi_dsi_off(struct platform_device *pdev);
 static int mipi_dsi_on(struct platform_device *pdev);
+static int mipi_dsi_fps_level_change(struct platform_device *pdev,
+					u32 fps_level);
 
 static struct platform_device *pdev_list[MSM_FB_MAX_DEV_LIST];
 static int pdev_list_cnt;
@@ -69,177 +65,11 @@ static struct platform_driver mipi_dsi_driver = {
 
 struct device dsi_dev;
 
-static int first_init = 1;
-
-static int panel_uv = 250;
-module_param(panel_uv, int, 0664);
-
-void mipi_dsi_panel_uv(int panel_undervolt)
+static int mipi_dsi_fps_level_change(struct platform_device *pdev,
+					u32 fps_level)
 {
-	panel_uv = panel_undervolt;
-}
-
-static int mipi_dsi_panel_power(const int on)
-{
-	static bool dsi_power_on = false;
-	static struct regulator *l1_3v;
-	static struct regulator *lvs1_1v8;
-	static struct regulator *l4_1v8;
-	int rc;
-	int panel_voltage;
-	static int panel_voltage_after = 2850000;
-
-	panel_voltage = (3100000 - (panel_uv * 1000));
-
-	if (!dsi_power_on) {
-		l1_3v = regulator_get(NULL, "8901_l1");
-		if (IS_ERR_OR_NULL(l1_3v)) {
-			PR_DISP_ERR("%s: unable to get 8901_l1\n", __func__);
-			return -ENODEV;
-		}
-		if (system_rev >= 1) {
-			l4_1v8 = regulator_get(NULL, "8901_l4");
-			if (IS_ERR_OR_NULL(l4_1v8)) {
-				PR_DISP_ERR("%s: unable to get 8901_l4\n", __func__);
-				return -ENODEV;
-			}
-		} else {
-			lvs1_1v8 = regulator_get(NULL, "8901_lvs1");
-			if (IS_ERR_OR_NULL(lvs1_1v8)) {
-				PR_DISP_ERR("%s: unable to get 8901_lvs1\n", __func__);
-				return -ENODEV;
-			}
-		}
-
-		rc = regulator_set_voltage(l1_3v, 2850000, 2850000);
-		if (rc) {
-			PR_DISP_ERR("%s: error setting l1_3v voltage\n", __func__);
-			return -EINVAL;
-		}
-
-		if (system_rev >= 1) {
-			rc = regulator_set_voltage(l4_1v8, 1800000, 1800000);
-			if (rc) {
-				PR_DISP_ERR("%s: error setting l4_1v8 voltage\n", __func__);
-				return -EINVAL;
-			}
-		}
-
-		rc = gpio_request(GPIO_LCM_RST_N,
-				"LCM_RST_N");
-		if (rc) {
-			printk(KERN_ERR "%s:LCM gpio %d request"
-					"failed\n", __func__,
-					GPIO_LCM_RST_N);
-			return -EINVAL;
-		}
-
-		dsi_power_on = true;
-	}
-
-	if (dsi_power_on && (panel_voltage != 2850000)) {
-		// Do nothing if panel voltage has already been transformed
-		if (panel_voltage_after != panel_voltage) {
-			// Check if requested panel voltage is in bounds
-			if ((panel_voltage < 2400000) || (panel_voltage > 3100000)) {
-				PR_DISP_ERR("%s: %dmV is out of range\n", __func__, panel_uv);
-				PR_DISP_ERR("%s: falling back to %dmV\n", __func__, (panel_voltage_after/1000));
-				panel_voltage = panel_voltage_after;
-			}
-
-			// Check if requested panel voltage is a multiple
-			// of 25mV.
-			if ((panel_voltage % 25000) != 0) {
-				PR_DISP_ERR("%s: %dmV undervolt is not a multiple of 25\n", __func__, panel_uv);
-				PR_DISP_ERR("%s: falling back to %dmV\n", __func__, (panel_voltage_after/1000));
-				panel_voltage = panel_voltage_after;
-			}
-
-			rc = regulator_set_voltage(l1_3v, panel_voltage, panel_voltage);
-			if (rc) {
-				PR_DISP_ERR("%s: error undervolting panel\n", __func__);
-				return -EINVAL;
-			} else {
-				PR_DISP_INFO("%s: panel voltage is now %dmV\n", __func__, (panel_voltage/1000));
-			}
-
-			panel_voltage_after = panel_voltage;
-			mipi_dsi_panel_uv((3100000 - panel_voltage_after)/1000);
-		}
-	}
-
-	if (!l1_3v || IS_ERR(l1_3v)) {
-		PR_DISP_ERR("%s: l1_3v is not initialized\n", __func__);
-		return -ENODEV;
-	}
-
-	if (system_rev >= 1) {
-		if (!l4_1v8 || IS_ERR(l4_1v8)) {
-			PR_DISP_ERR("%s: l4_1v8 is not initialized\n", __func__);
-			return -ENODEV;
-		}
-	} else {
-		if (!lvs1_1v8 || IS_ERR(lvs1_1v8)) {
-			PR_DISP_ERR("%s: lvs1_1v8 is not initialized\n", __func__);
-			return -ENODEV;
-		}
-	}
-
-	if (on) {
-		if (regulator_enable(l1_3v)) {
-			PR_DISP_ERR("%s: Unable to enable the regulator:"
-					" l1_3v\n", __func__);
-			return -ENODEV;
-		}
-		hr_msleep(5);
-
-		if (system_rev >= 1) {
-			if (regulator_enable(l4_1v8)) {
-				PR_DISP_ERR("%s: Unable to enable the regulator:"
-						" l4_1v8\n", __func__);
-				return -ENODEV;
-			}
-		} else {
-			if (regulator_enable(lvs1_1v8)) {
-				PR_DISP_ERR("%s: Unable to enable the regulator:"
-						" lvs1_1v8\n", __func__);
-				return -ENODEV;
-			}
-		}
-
-		if (!first_init) {
-			hr_msleep(10);
-			gpio_set_value(GPIO_LCM_RST_N, 1);
-			hr_msleep(1);
-			gpio_set_value(GPIO_LCM_RST_N, 0);
-			hr_msleep(1);
-			gpio_set_value(GPIO_LCM_RST_N, 1);
-			hr_msleep(20);
-		}
-	} else {
-		gpio_set_value(GPIO_LCM_RST_N, 0);
-		hr_msleep(5);
-		if (system_rev >= 1) {
-			if (regulator_disable(l4_1v8)) {
-				PR_DISP_ERR("%s: Unable to enable the regulator:"
-						" l4_1v8\n", __func__);
-				return -ENODEV;
-			}
-		} else {
-			if (regulator_disable(lvs1_1v8)) {
-				PR_DISP_ERR("%s: Unable to enable the regulator:"
-						" lvs1_1v8\n", __func__);
-				return -ENODEV;
-			}
-		}
-		hr_msleep(5);
-		if (regulator_disable(l1_3v)) {
-			PR_DISP_ERR("%s: Unable to enable the regulator:"
-					" l1_3v\n", __func__);
-			return -ENODEV;
-		}
-	}
-
+	mipi_dsi_wait4video_done();
+	mipi_dsi_configure_fb_divider(fps_level);
 	return 0;
 }
 
@@ -260,9 +90,18 @@ static int mipi_dsi_off(struct platform_device *pdev)
 		down(&mfd->dma->mutex);
 
 	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
-		mipi_dsi_clk_cfg(1);
+		mipi_dsi_prepare_ahb_clocks();
+		mipi_dsi_ahb_ctrl(1);
+		mipi_dsi_clk_enable();
+
+		/* make sure dsi_cmd_mdp is idle */
 		mipi_dsi_cmd_mdp_busy();
 	}
+
+	/*
+	 * Desctiption: change to DSI_CMD_MODE since it needed to
+	 * tx DCS dsiplay off comamnd to panel
+	 */
 	mipi_dsi_op_mode_config(DSI_CMD_MODE);
 
 	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
@@ -277,14 +116,22 @@ static int mipi_dsi_off(struct platform_device *pdev)
 
 	ret = panel_next_off(pdev);
 
-#ifdef CONFIG_MSM_BUS_SCALING
-	mdp_bus_scale_update_request(0, 0, 0, 0);
-#endif
+	spin_lock_bh(&dsi_clk_lock);
 
-	mipi_dsi_clk_turn_off();
+	mipi_dsi_clk_disable();
 
-	if (mipi_dsi_pdata)
-		mipi_dsi_panel_power(0);
+	/* disbale dsi engine */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0000, 0);
+
+	mipi_dsi_phy_ctrl(0);
+
+	mipi_dsi_ahb_ctrl(0);
+	spin_unlock_bh(&dsi_clk_lock);
+
+	mipi_dsi_unprepare_clocks();
+	mipi_dsi_unprepare_ahb_clocks();
+	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
+		mipi_dsi_pdata->dsi_power_save(0);
 
 	if (mdp_rev >= MDP_REV_41)
 		mutex_unlock(&mfd->dma->ov_mutex);
@@ -299,6 +146,7 @@ static int mipi_dsi_off(struct platform_device *pdev)
 static int mipi_dsi_on(struct platform_device *pdev)
 {
 	int ret = 0;
+	u32 clk_rate;
 	struct msm_fb_data_type *mfd;
 	struct fb_info *fbi;
 	struct fb_var_screeninfo *var;
@@ -316,20 +164,26 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	var = &fbi->var;
 	pinfo = &mfd->panel_info;
 
-#ifdef CONFIG_MSM_ALT_DSI_ESCAPE_CLOCK
-	esc_byte_ratio = pinfo->mipi.esc_byte_ratio;
-#else
-	esc_byte_ratio = 2;
-#endif
+	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
+		mipi_dsi_pdata->dsi_power_save(1);
 
-	if (mipi_dsi_pdata)
-		mipi_dsi_panel_power(1);
+	cont_splash_clk_ctrl(0);
+	mipi_dsi_prepare_ahb_clocks();
+
+	mipi_dsi_ahb_ctrl(1);
+
+	clk_rate = mfd->fbi->var.pixclock;
+	clk_rate = min(clk_rate, mfd->panel_info.clk_max);
+
+	mipi_dsi_phy_ctrl(1);
 
 	if (mdp_rev == MDP_REV_42 && mipi_dsi_pdata)
 		target_type = mipi_dsi_pdata->target_type;
 
-	cont_splash_clk_ctrl(0);
-	mipi_dsi_clk_turn_on(&(mfd->panel_info), target_type);
+	mipi_dsi_phy_init(0, &(mfd->panel_info), target_type);
+
+	mipi_dsi_clk_enable();
+
 	MIPI_OUTP(MIPI_DSI_BASE + 0x114, 1);
 	MIPI_OUTP(MIPI_DSI_BASE + 0x114, 0);
 
@@ -359,7 +213,7 @@ static int mipi_dsi_on(struct platform_device *pdev)
 					vfp - 1) << 16 | (hspw + hbp +
 					width + dummy_xres + hfp - 1));
 		} else {
-			
+			/* DSI_LAN_SWAP_CTRL */
 			MIPI_OUTP(MIPI_DSI_BASE + 0x00ac, mipi->dlane_swap);
 
 			MIPI_OUTP(MIPI_DSI_BASE + 0x20,
@@ -375,7 +229,7 @@ static int mipi_dsi_on(struct platform_device *pdev)
 		MIPI_OUTP(MIPI_DSI_BASE + 0x30, 0);
 		MIPI_OUTP(MIPI_DSI_BASE + 0x34, (vspw << 16));
 
-	} else {		
+	} else {		/* command mode */
 		if (mipi->dst_format == DSI_CMD_DST_FORMAT_RGB888)
 			bpp = 3;
 		else if (mipi->dst_format == DSI_CMD_DST_FORMAT_RGB666)
@@ -383,16 +237,16 @@ static int mipi_dsi_on(struct platform_device *pdev)
 		else if (mipi->dst_format == DSI_CMD_DST_FORMAT_RGB565)
 			bpp = 2;
 		else
-			bpp = 3;	
+			bpp = 3;	/* Default format set to RGB888 */
 
 		ystride = width * bpp + 1;
 
-		
+		/* DSI_COMMAND_MODE_MDP_STREAM_CTRL */
 		data = (ystride << 16) | (mipi->vc << 8) | DTYPE_DCS_LWRITE;
 		MIPI_OUTP(MIPI_DSI_BASE + 0x5c, data);
 		MIPI_OUTP(MIPI_DSI_BASE + 0x54, data);
 
-		
+		/* DSI_COMMAND_MODE_MDP_STREAM_TOTAL */
 		data = height << 16 | width;
 		MIPI_OUTP(MIPI_DSI_BASE + 0x60, data);
 		MIPI_OUTP(MIPI_DSI_BASE + 0x58, data);
@@ -463,13 +317,11 @@ static int mipi_dsi_on(struct platform_device *pdev)
 			}
 			mipi_dsi_set_tear_on(mfd);
 		}
-		mipi_dsi_clk_cfg(0);
+		mipi_dsi_clk_disable();
+		mipi_dsi_unprepare_clocks();
+		mipi_dsi_ahb_ctrl(0);
+		mipi_dsi_unprepare_ahb_clocks();
 	}
-
-
-#ifdef CONFIG_MSM_BUS_SCALING
-	mdp_bus_scale_update_request(2, 2, 2, 2);
-#endif
 
 	if (mdp_rev >= MDP_REV_41)
 		mutex_unlock(&mfd->dma->ov_mutex);
@@ -479,6 +331,17 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	pr_debug("%s-:\n", __func__);
 
 	return ret;
+}
+
+static int mipi_dsi_early_off(struct platform_device *pdev)
+{
+	return panel_next_early_off(pdev);
+}
+
+
+static int mipi_dsi_late_init(struct platform_device *pdev)
+{
+	return panel_next_late_init(pdev);
 }
 
 
@@ -537,6 +400,11 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 
 		if (mdp_rev == MDP_REV_42 && mipi_dsi_pdata &&
 			mipi_dsi_pdata->target_type == 1) {
+			/* Target type is 1 for device with (De)serializer
+			 * 0x4f00000 is the base for TV Encoder.
+			 * Unused Offset 0x1000 is used for
+			 * (de)serializer on emulation platform
+			 */
 			periph_base = ioremap(MMSS_SERDES_BASE_PHY, 0x100);
 
 			if (periph_base) {
@@ -570,11 +438,13 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 
 		if (mipi_dsi_pdata->splash_is_enabled &&
 			!mipi_dsi_pdata->splash_is_enabled()) {
+			mipi_dsi_prepare_ahb_clocks();
 			mipi_dsi_ahb_ctrl(1);
 			MIPI_OUTP(MIPI_DSI_BASE + 0x118, 0);
 			MIPI_OUTP(MIPI_DSI_BASE + 0x0, 0);
 			MIPI_OUTP(MIPI_DSI_BASE + 0x200, 0);
 			mipi_dsi_ahb_ctrl(0);
+			mipi_dsi_unprepare_ahb_clocks();
 		}
 		mipi_dsi_resource_initialized = 1;
 
@@ -595,15 +465,18 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 	if (pdev_list_cnt >= MSM_FB_MAX_DEV_LIST)
 		return -ENOMEM;
 
-	if (!mfd->cont_splash_done)
-		cont_splash_clk_ctrl(1);
-
 	mdp_dev = platform_device_alloc("mdp", pdev->id);
 	if (!mdp_dev)
 		return -ENOMEM;
 
+	/*
+	 * link to the latest pdev
+	 */
 	mfd->pdev = mdp_dev;
 
+	/*
+	 * alloc panel device data
+	 */
 	if (platform_device_add_data
 	    (mdp_dev, pdev->dev.platform_data,
 	     sizeof(struct msm_fb_panel_data))) {
@@ -611,11 +484,20 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		platform_device_put(mdp_dev);
 		return -ENOMEM;
 	}
+	/*
+	 * data chain
+	 */
 	pdata = mdp_dev->dev.platform_data;
 	pdata->on = mipi_dsi_on;
 	pdata->off = mipi_dsi_off;
+	pdata->fps_level_change = mipi_dsi_fps_level_change;
+	pdata->late_init = mipi_dsi_late_init;
+	pdata->early_off = mipi_dsi_early_off;
 	pdata->next = pdev;
 
+	/*
+	 * get/set panel specific fb info
+	 */
 	mfd->panel_info = pdata->panel_info;
 	pinfo = &mfd->panel_info;
 
@@ -677,7 +559,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		 || (mipi->dst_format == DSI_VIDEO_DST_FORMAT_RGB565))
 		bpp = 2;
 	else
-		bpp = 3;		
+		bpp = 3;		/* Default format set to RGB888 */
 
 	if (mfd->panel_info.type == MIPI_VIDEO_PANEL &&
 		!mfd->panel_info.clk_rate) {
@@ -702,19 +584,29 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		goto mipi_dsi_probe_err;
 
 	if ((dsi_pclk_rate < 3300000) || (dsi_pclk_rate > 223000000)) {
-		pr_err("%s: Pixel clock (%d) not supported\n",
-			__func__, dsi_pclk_rate);
+		pr_err("%s: Pixel clock not supported\n", __func__);
 		dsi_pclk_rate = 35000000;
 	}
 	mipi->dsi_pclk_rate = dsi_pclk_rate;
 
+	/*
+	 * set driver data
+	 */
 	platform_set_drvdata(mdp_dev, mfd);
 
+	/*
+	 * register in mdp driver
+	 */
 	rc = platform_device_add(mdp_dev);
 	if (rc)
 		goto mipi_dsi_probe_err;
 
 	pdev_list[pdev_list_cnt++] = pdev;
+
+	esc_byte_ratio = pinfo->mipi.esc_byte_ratio;
+
+	if (!mfd->cont_splash_done)
+		cont_splash_clk_ctrl(1);
 
 return 0;
 
