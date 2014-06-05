@@ -791,6 +791,9 @@ static LIST_HEAD(g_lh_usb_host_detect_notifier_list);
 #endif
 /* END: add USB connected notify function */
 
+/* Pyramid panel */
+int mipi_dsi_panel_power(int on);
+
 int board_mfg_mode(void);
 int board_build_flag(void);
 int __init parse_tag_skuid(const struct tag *tags);
