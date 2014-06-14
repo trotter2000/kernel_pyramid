@@ -1150,29 +1150,30 @@ int mipi_dsi_panel_power(const int on)
 		if (panel_voltage_after != panel_voltage) {
 			// Check if requested panel voltage is in bounds
 			if ((panel_voltage < 2400000) || (panel_voltage > 3100000)) {
-				PR_DISP_ERR("%s: %dmV is out of range\n", __func__, panel_uv);
-				PR_DISP_ERR("%s: falling back to %dmV\n", __func__, (panel_voltage_after/1000));
+				pr_info("%s: %dmV is out of range\n", __func__, panel_uv);
+				pr_info("%s: falling back to %dmV\n", __func__, (panel_voltage_after/1000));
 				panel_voltage = panel_voltage_after;
-			}
-
-			// Check if requested panel voltage is a multiple
-			// of 25mV.
-			if ((panel_voltage % 25000) != 0) {
-				PR_DISP_ERR("%s: %dmV undervolt is not a multiple of 25\n", __func__, panel_uv);
-				PR_DISP_ERR("%s: falling back to %dmV\n", __func__, (panel_voltage_after/1000));
-				panel_voltage = panel_voltage_after;
-			}
-
-			rc = regulator_set_voltage(l1_3v, panel_voltage, panel_voltage);
-			if (rc) {
-				PR_DISP_ERR("%s: error undervolting panel\n", __func__);
-				return -EINVAL;
 			} else {
-				PR_DISP_INFO("%s: panel voltage is now %dmV\n", __func__, (panel_voltage/1000));
+				// Check if requested panel voltage is a multiple
+				// of 25mV.
+				if ((panel_voltage % 25000) != 0) {
+					pr_info("%s: %dmV undervolt is not a multiple of 25\n", __func__, panel_uv);
+					pr_info("%s: falling back to %dmV\n", __func__, (panel_voltage_after/1000));
+					panel_voltage = panel_voltage_after;
+				} else {
+					rc = regulator_set_voltage(l1_3v, panel_voltage, panel_voltage);
+
+					if (rc) {
+						PR_DISP_ERR("%s: error undervolting panel\n", __func__);
+						return -EINVAL;
+					} else
+						pr_info("%s: panel voltage is now %dmV\n", __func__, (panel_voltage/1000));
+
+					panel_voltage_after = panel_voltage;
+				}
 			}
 
-			panel_voltage_after = panel_voltage;
-			mipi_dsi_panel_uv((3100000 - panel_voltage_after)/1000);
+			mipi_dsi_panel_uv((3100000 - panel_voltage)/1000);
 		}
 	}
 
