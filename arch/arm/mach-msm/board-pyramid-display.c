@@ -1079,7 +1079,7 @@ void __init pyramid_mdp_writeback(struct memtype_reserve* reserve_table)
 
 static int first_init = 1;
 
-static int panel_uv = 400;
+static int panel_uv = 0;
 module_param(panel_uv, int, 0664);
 
 void mipi_dsi_panel_uv(int panel_undervolt)
@@ -1095,7 +1095,7 @@ int mipi_dsi_panel_power(const int on)
 	static struct regulator *l4_1v8;
 	int rc;
 	int panel_voltage;
-	static int panel_voltage_after = 2700000;
+	static int panel_voltage_after = 3100000;
 
 	panel_voltage = (3100000 - (panel_uv * 1000));
 
@@ -1119,7 +1119,7 @@ int mipi_dsi_panel_power(const int on)
 			}
 		}
 
-		rc = regulator_set_voltage(l1_3v, 2700000, 2700000);
+		rc = regulator_set_voltage(l1_3v, 3100000, 3100000);
 		if (rc) {
 			PR_DISP_ERR("%s: error setting l1_3v voltage\n", __func__);
 			return -EINVAL;
@@ -1145,7 +1145,7 @@ int mipi_dsi_panel_power(const int on)
 		dsi_power_on = true;
 	}
 
-	if (dsi_power_on && (panel_voltage != 2700000)) {
+	if (dsi_power_on && (panel_voltage != 3100000)) {
 		// Do nothing if panel voltage has already been transformed
 		if (panel_voltage_after != panel_voltage) {
 			// Check if requested panel voltage is in bounds
