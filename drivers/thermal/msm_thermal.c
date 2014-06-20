@@ -28,13 +28,13 @@
 #define DEF_ALLOWED_MAX_FREQ 384000
 
 //mid thermal limit
-#define DEF_ALLOWED_MID_HIGH 65
-#define DEF_RESET_MID_HIGH   61
+#define DEF_ALLOWED_MID_HIGH 69
+#define DEF_RESET_MID_HIGH   65
 #define DEF_ALLOWED_MID_FREQ 972000
 
 //low thermal limit
-#define DEF_ALLOWED_LOW_HIGH 56
-#define DEF_RESET_LOW_HIGH   53
+#define DEF_ALLOWED_LOW_HIGH 64
+#define DEF_RESET_LOW_HIGH   60
 #define DEF_ALLOWED_LOW_FREQ 1188000
 
 //Sampling interval
