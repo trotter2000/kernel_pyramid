@@ -1685,49 +1685,49 @@ static struct dsi_cmd_desc novatek_cmd_backlight_cmds[] = {
 		sizeof(led_pwm1), led_pwm1},
 };
 
-static int mipi_lcd_on = 1;
 static struct dcs_cmd_req cmdreq;
 
 static int pyramid_lcd_on(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
+	struct mipi_panel_info *mipi;
 
 	mfd = platform_get_drvdata(pdev);
+
 	if (!mfd)
 		return -ENODEV;
+
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
-	if (mipi_lcd_on)
-		return 0;
+	mipi = &mfd->panel_info.mipi;
 
-	switch (panel_type) {
-		case PANEL_ID_PYD_SHARP:
-			printk(KERN_INFO "pyramid_lcd_on PANEL_ID_PYD_SHARP\n");
-			cmdreq.cmds = pyd_sharp_cmd_on_cmds;
-			cmdreq.cmds_cnt = ARRAY_SIZE(pyd_sharp_cmd_on_cmds);
-			cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
-			cmdreq.rlen = 0;
-			cmdreq.cb = NULL;
+	if (!first_init) {
+		if (mipi->mode == DSI_CMD_MODE) {
+			switch (panel_type) {
+				case PANEL_ID_PYD_SHARP:
+					cmdreq.cmds = pyd_sharp_cmd_on_cmds;
+					cmdreq.cmds_cnt = ARRAY_SIZE(pyd_sharp_cmd_on_cmds);
+					cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
+					cmdreq.rlen = 0;
+					cmdreq.cb = NULL;
 
-			mipi_dsi_cmdlist_put(&cmdreq);
-			break;
-		case PANEL_ID_PYD_AUO_NT:
-			printk(KERN_INFO "pyramid_lcd_on PANEL_ID_PYD_AUO_NT\n");
-			cmdreq.cmds = pyd_auo_cmd_on_cmds;
-			cmdreq.cmds_cnt = ARRAY_SIZE(pyd_auo_cmd_on_cmds);
-			cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
-			cmdreq.rlen = 0;
-			cmdreq.cb = NULL;
+					mipi_dsi_cmdlist_put(&cmdreq);
+					break;
+				case PANEL_ID_PYD_AUO_NT:
+					cmdreq.cmds = pyd_auo_cmd_on_cmds;
+					cmdreq.cmds_cnt = ARRAY_SIZE(pyd_auo_cmd_on_cmds);
+					cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
+					cmdreq.rlen = 0;
+					cmdreq.cb = NULL;
 
-			mipi_dsi_cmdlist_put(&cmdreq);
-			break;
-		default:
-			PR_DISP_ERR("%s: panel_type is not supported!(%d)\n", __func__, panel_type);
-			break;
+					mipi_dsi_cmdlist_put(&cmdreq);
+					break;
+			}
+		}
 	}
 
-	mipi_lcd_on = 1;
+	first_init = 0;
 
 	return 0;
 }
@@ -1743,31 +1743,13 @@ static int pyramid_lcd_off(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
-	if (!mipi_lcd_on)
-		return 0;
+	cmdreq.cmds = novatek_display_off_cmds;
+	cmdreq.cmds_cnt = ARRAY_SIZE(novatek_display_off_cmds);
+	cmdreq.flags = CMD_REQ_COMMIT;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
 
-	switch (panel_type) {
-		case PANEL_ID_PYD_SHARP:
-			cmdreq.cmds = novatek_display_off_cmds;
-			cmdreq.cmds_cnt = ARRAY_SIZE(novatek_display_off_cmds);
-			cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
-			cmdreq.rlen = 0;
-			cmdreq.cb = NULL;
-
-			mipi_dsi_cmdlist_put(&cmdreq);
-			break;
-		case PANEL_ID_PYD_AUO_NT:
-			cmdreq.cmds = novatek_display_off_cmds;
-			cmdreq.cmds_cnt = ARRAY_SIZE(novatek_display_off_cmds);
-			cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
-			cmdreq.rlen = 0;
-			cmdreq.cb = NULL;
-
-			mipi_dsi_cmdlist_put(&cmdreq);
-			break;
-	}
-
-	mipi_lcd_on = 0;
+	mipi_dsi_cmdlist_put(&cmdreq);
 
 	return 0;
 }
@@ -1832,12 +1814,8 @@ static void pyramid_set_backlight(struct msm_fb_data_type *mfd)
 {
 	if (panel_type == PANEL_ID_PYD_SHARP) {
 		led_pwm1[1] = pyd_shp_shrink_pwm((unsigned char)(mfd->bl_level));
-	}
-	else if (panel_type == PANEL_ID_PYD_AUO_NT) {
+	} else if (panel_type == PANEL_ID_PYD_AUO_NT) {
 		led_pwm1[1] = pyd_auo_shrink_pwm((unsigned char)(mfd->bl_level));
-	}
-	else {
-		led_pwm1[1] = (unsigned char)(mfd->bl_level);
 	}
 
 	cmdreq.cmds = novatek_cmd_backlight_cmds;
@@ -1915,7 +1893,7 @@ static struct mipi_dsi_phy_ctrl dsi_cmd_mode_phy_db = {
 	{0x7f, 0x00, 0x00, 0x00},
 	{0xee, 0x02, 0x86, 0x00},
 	{0x41, 0x9c, 0xb9, 0xd6, 0x00, 0x50, 0x48, 0x63, 0x01, 0x0f, 0x07,
-	0x05, 0x14, 0x03, 0x03, 0x03, 0x54, 0x06, 0x10, 0x04, 0x03 },
+	 0x05, 0x14, 0x03, 0x03, 0x03, 0x54, 0x06, 0x10, 0x04, 0x03},
 };
 
 static int __init mipi_cmd_novatek_blue_qhd_pt_init(void)
