@@ -19,6 +19,7 @@
 #include <linux/msm_tsens.h>
 #include <linux/workqueue.h>
 #include <linux/cpu.h>
+#include <linux/cpumask.h>
 
 #define DEF_TEMP_SENSOR      0
 
@@ -110,6 +111,7 @@ static void check_temp(struct work_struct *work)
 	int update_policy = 0;
 	int cpu = 0;
 	int ret = 0;
+	int loop_count = 0;
 
 	tsens_dev.sensor_num = DEF_TEMP_SENSOR;
 	ret = tsens_get_temp(&tsens_dev, &temp);
@@ -130,17 +132,18 @@ static void check_temp(struct work_struct *work)
 		//low trip point
 		if ((temp >= msm_thermal_tuners_ins.allowed_low_high) &&
 		    (temp < msm_thermal_tuners_ins.allowed_mid_high) &&
-		    (cpu_policy->max > msm_thermal_tuners_ins.allowed_low_freq)) {
+		    (cpu_policy->user_policy.max > msm_thermal_tuners_ins.allowed_low_freq)) {
 			update_policy = 1;
 			/* save pre-throttled max freq value for each core */
-		if (cpu == 0) {
-			pre_throt_max0 = cpu_policy->user_policy.max;
-		} else if (cpu == 1) {
-			pre_throt_max1 = cpu_policy->user_policy.max;
-		}
+			if (cpu == 0)
+				pre_throt_max0 = cpu_policy->user_policy.max;
+			else if (cpu == 1)
+				pre_throt_max1 = cpu_policy->user_policy.max;
+
 			max_freq = msm_thermal_tuners_ins.allowed_low_freq;
 			thermal_throttled = 1;
 			pr_warn("msm_thermal: Thermal Throttled (low)! temp: %lu\n", temp);
+			loop_count = 0;
 		//low clr point
 		} else if ((temp < msm_thermal_tuners_ins.allowed_low_low) &&
 			   (thermal_throttled > 0)) {
@@ -161,10 +164,18 @@ static void check_temp(struct work_struct *work)
 				pr_err("msm_thermal: FATAL ERROR! pre_throt_max0=0 and pre_throt_max1=0!\n");
 				pr_err("msm_thermal: Falling back to 1512MHz to avoid a meltdown!\n");
 				}
-				/* wait until 2nd core is unthrottled */
-				if (cpu == 1)
+				/* wait until 2nd core is unthrottled (if it's online) */
+				if ((cpu == 1) || ((cpu == 0) && !cpu_online(1)))
 					thermal_throttled = 0;
+
+				if (loop_count > 3) {
+					pr_warn("msm_thermal: low-clear point is stuck in a loop, rescheduling\n");
+					loop_count = 0;
+					goto reschedule;
+				}
+
 				pr_warn("msm_thermal: Low Thermal Throttling Ended! temp: %lu\n", temp);
+				loop_count++;
 			}
 		//mid trip point
 		} else if ((temp >= msm_thermal_tuners_ins.allowed_mid_high) &&
@@ -174,16 +185,18 @@ static void check_temp(struct work_struct *work)
 			max_freq = msm_thermal_tuners_ins.allowed_mid_freq;
 			thermal_throttled = 2;
 			pr_warn("msm_thermal: Thermal Throttled (mid)! temp: %lu\n", temp);
+			loop_count = 0;
 		//mid clr point
 		} else if ( (temp < msm_thermal_tuners_ins.allowed_mid_low) &&
 			   (thermal_throttled > 1)) {
 			if (cpu_policy->max < cpu_policy->cpuinfo.max_freq) {
 				max_freq = msm_thermal_tuners_ins.allowed_low_freq;
 				update_policy = 1;
-				/* wait until 2nd core is unthrottled */
-				if (cpu == 1)
+				/* wait until 2nd core is unthrottled (if it's online) */
+				if ((cpu == 1) || ((cpu == 0) && !cpu_online(1)))
 					thermal_throttled = 1;
 				pr_warn("msm_thermal: Mid Thermal Throttling Ended! temp: %lu\n", temp);
+				loop_count = 0;
 			}
 		//max trip point
 		} else if ((temp >= msm_thermal_tuners_ins.allowed_max_high) &&
@@ -191,12 +204,14 @@ static void check_temp(struct work_struct *work)
 			if (temp > 1000) {
 				pr_err("msm_thermal: ERROR! Temperature is way out of bounds!\n");
 				pr_err("msm_thermal: temp: %lu\n", temp);
+				loop_count = 0;
 				goto reschedule;
 			} else {
 				update_policy = 1;
 				max_freq = msm_thermal_tuners_ins.allowed_max_freq;
 				thermal_throttled = 3;
 				pr_warn("msm_thermal: Thermal Throttled (max)! temp: %lu\n", temp);
+				loop_count = 0;
 			}
 		//max clr point
 		} else if ((temp < msm_thermal_tuners_ins.allowed_max_low) &&
@@ -204,10 +219,11 @@ static void check_temp(struct work_struct *work)
 			if (cpu_policy->max < cpu_policy->cpuinfo.max_freq) {
 				max_freq = msm_thermal_tuners_ins.allowed_mid_freq;
 				update_policy = 1;
-				/* wait until 2nd core is unthrottled */
-				if (cpu == 1)
+				/* wait until 2nd core is unthrottled (if it's online) */
+				if ((cpu == 1) || ((cpu == 0) && !cpu_online(1)))
 					thermal_throttled = 2;
 				pr_warn("msm_thermal: Max Thermal Throttling Ended! temp: %lu\n", temp);
+				loop_count = 0;
 			}
 		}
 
