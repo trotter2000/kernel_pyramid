@@ -302,6 +302,11 @@ int pyramid_support_back_mic(void)
 	return 1;
 }
 
+void pyramid_get_acoustic_tables(struct acoustic_tables *tb)
+{
+	strcpy(tb->tpa2051, "TPA2051_CFG.csv");
+}
+
 void pyramid_enable_beats(int en)
 {
 	pr_aud_info("%s: %d\n", __func__, en);
@@ -353,6 +358,7 @@ static struct acoustic_ops acoustic = {
 	.support_adie = pyramid_support_adie,
 	.support_aic3254 = pyramid_support_aic3254,
 	.support_back_mic = pyramid_support_back_mic,
+	.get_acoustic_tables = pyramid_get_acoustic_tables,
 	.get_speaker_channels = pyramid_get_speaker_channels,
 	.support_beats = pyramid_support_beats,
 	.enable_beats = pyramid_enable_beats,
