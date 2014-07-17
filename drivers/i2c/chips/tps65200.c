@@ -366,6 +366,8 @@ int tps_set_charger_ctrl(u32 ctl)
 
 		regh = 0x87;
 
+		if (tps65200_low_chg)
+			regh |= 0x08;	/* enable low charge current */
 		tps65200_i2c_write_byte(regh, 0x03);
 
 		regh = 0xFF;
