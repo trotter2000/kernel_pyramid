@@ -370,7 +370,10 @@ int tps_set_charger_ctrl(u32 ctl)
 			regh |= 0x08;	/* enable low charge current */
 		tps65200_i2c_write_byte(regh, 0x03);
 
-		regh = 0xFF;
+		regh = 0xA3;
+
+		if (htc_is_dq_pass)
+			regh = 0xAA;
 
 		tps65200_i2c_write_byte(regh, 0x02);
 
