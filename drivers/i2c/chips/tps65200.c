@@ -30,7 +30,10 @@
 #include <linux/usb/android_composite.h>
 #include <mach/board_htc.h>
 #include <mach/board.h>
-
+#if defined(CONFIG_MACH_HOLIDAY)
+#define AC_CURRENT_SWTICH_DELAY_200MS		200
+#define AC_CURRENT_SWTICH_DELAY_100MS		100
+#endif	/* CONFIG_MACH_HOLIDAY */
 #define pr_tps_fmt(fmt) "[BATT][tps65200] " fmt
 #define pr_tps_err_fmt(fmt) "[BATT][tps65200] err:" fmt
 #define pr_tps_info(fmt, ...) \
@@ -42,6 +45,7 @@
 #define TPS65200_CHECK_INTERVAL (15)
 /* Delay 200ms to set original VDPM for preventing vbus voltage dropped & pass MHL spec */
 #define DELAY_MHL_INIT	msecs_to_jiffies(200)
+#define SET_VDPM_AS_476	1
 
 static struct workqueue_struct *tps65200_wq;
 static struct work_struct chg_stat_work;
@@ -64,7 +68,9 @@ static int tps65200_initial = -1;
 static int tps65200_low_chg;
 static int tps65200_vdpm_chg = 0;
 
+#ifdef CONFIG_SUPPORT_DQ_BATTERY
 static int htc_is_dq_pass;
+#endif
 
 u8 batt_charging_state;
 
@@ -85,6 +91,10 @@ static void tps65200_set_check_alarm(void)
 
 static int tps65200_probe(struct i2c_client *client,
 			const struct i2c_device_id *id);
+#if 0
+static int tps65200_detect(struct i2c_client *client, int kind,
+			 struct i2c_board_info *info);
+#endif
 static int tps65200_remove(struct i2c_client *client);
 
 /* Supersonic for Switch charger */
@@ -288,7 +298,11 @@ u32 htc_fake_charger_for_testing(u32 ctl)
 	if((ctl > POWER_SUPPLY_ENABLE_INTERNAL) || (ctl == POWER_SUPPLY_DISABLE_CHARGE))
 		return ctl;
 
+#if defined(CONFIG_MACH_VERDI_LTE)
+	new_ctl = POWER_SUPPLY_ENABLE_9VAC_CHARGE;
+#else
 	/* set charger to 1A AC  by default */
+#endif
 
 	pr_tps_info("[BATT] %s(%d -> %d)\n", __func__, ctl , new_ctl);
 	batt_charging_state = new_ctl;
@@ -321,9 +335,11 @@ int tps_set_charger_ctrl(u32 ctl)
 		tps65200_i2c_write_byte(0x29, 0x01);
 		tps65200_i2c_write_byte(0x28, 0x00);
 
+#if SET_VDPM_AS_476
 		cancel_delayed_work_sync(&set_vdpm_work);
 		tps65200_vdpm_chg = 0;
 		tps65200_i2c_write_byte(0x87, 0x03); /* VDPM = 4.76V */
+#endif /* SET_VDPM_AS_476 */
 
 		/* cancel CHECK_CHG alarm */
 		alarm_cancel(&tps65200_check_alarm);
@@ -332,51 +348,103 @@ int tps_set_charger_ctrl(u32 ctl)
 		tps65200_dump_register();
 		tps65200_i2c_write_byte(0x29, 0x01);
 		tps65200_i2c_write_byte(0x2A, 0x00);
-
+#if SET_VDPM_AS_476
 		regh = 0x87; /* VDPM = 4.76V */
-
+#else
+		/* set DPM regulation voltage to 4.44V */
+		regh = 0x83;
+#ifdef CONFIG_SUPPORT_DQ_BATTERY
+		if (htc_is_dq_pass)
+			/* set DPM regulation voltage to 4.6V */
+			regh = 0x85;
+#endif
+#endif /* SET_VDPM_AS_476 */
 		if (tps65200_low_chg)
 			regh |= 0x08;	/* enable low charge curent */
 		tps65200_i2c_write_byte(regh, 0x03);
 		regh = 0x63;
-
+#ifdef CONFIG_SUPPORT_DQ_BATTERY
 		if (htc_is_dq_pass)
 			regh = 0x6A;
-
+#endif
 		tps65200_i2c_write_byte(regh, 0x02);
 		tps65200_i2c_read_byte(&regh1, 0x03);
 		tps65200_i2c_read_byte(&regh2, 0x02);
 		pr_tps_info("Switch charger ON (SLOW): regh 0x03=%x, "
 				"regh 0x02=%x\n", regh1, regh2);
 		tps65200_set_chg_stat(1);
-
+#if SET_VDPM_AS_476
 		tps65200_vdpm_chg = 1;
 		result = schedule_delayed_work(&set_vdpm_work, DELAY_MHL_INIT);
 		if (!result) {
 			cancel_delayed_work(&set_vdpm_work);
 			schedule_delayed_work(&set_vdpm_work, DELAY_MHL_INIT);
 		}
+#endif /* SET_VDPM_AS_476 */
 		break;
 	case POWER_SUPPLY_ENABLE_SLOW_CHARGE:
 	case POWER_SUPPLY_ENABLE_FAST_CHARGE:
 		tps65200_dump_register();
-
+#if defined(CONFIG_MACH_HOLIDAY)
+/*                tps65200_i2c_write_byte(0x29, 0x01);*/
+		regh = 0x1 | (0x0 << 3);  /* 550mA */
+		tps65200_i2c_write_byte(regh, 0x01);
+#else
 		tps65200_i2c_write_byte(0x29, 0x01);
 		tps65200_i2c_write_byte(0x2A, 0x00);
-
+#if SET_VDPM_AS_476
 		regh = 0x87;
-
+#else
+#endif
+		/* set DPM regulation voltage to 4.44V */
+		regh = 0x83;
+#ifdef CONFIG_SUPPORT_DQ_BATTERY
+		if (htc_is_dq_pass)
+			/* set DPM regulation voltage to 4.6V */
+			regh = 0x85;
+#endif
+#endif /* SET_VDPM_AS_476 */
 		if (tps65200_low_chg)
 			regh |= 0x08;	/* enable low charge current */
 		tps65200_i2c_write_byte(regh, 0x03);
-
-		regh = 0xA3;
-
+#if defined(CONFIG_MACH_HOLIDAY)
+		regh = 0x63;
+#ifdef CONFIG_SUPPORT_DQ_BATTERY
 		if (htc_is_dq_pass)
-			regh = 0xAA;
-
+			regh = 0x6A;
+#endif
 		tps65200_i2c_write_byte(regh, 0x02);
 
+		tps65200_i2c_write_byte(0x2A, 0x00);
+
+		msleep(AC_CURRENT_SWTICH_DELAY_200MS);
+#endif  /* CONFIG_MACH_HOLIDAY */
+
+		regh = 0xA3;
+#ifdef CONFIG_SUPPORT_DQ_BATTERY
+		if (htc_is_dq_pass)
+			regh = 0xAA;
+#endif
+		tps65200_i2c_write_byte(regh, 0x02);
+
+#if defined(CONFIG_MACH_HOLIDAY)
+		msleep(AC_CURRENT_SWTICH_DELAY_200MS);
+		regh = 0x9;	  /* 650mA */
+		tps65200_i2c_write_byte(regh, 0x01);
+
+/*                msleep(AC_CURRENT_SWTICH_DELAY_100MS);*/
+/*                regh = 0x11;	  |+ 750mA +|*/
+/*                tps65200_i2c_write_byte(regh, 0x01);*/
+
+/*                msleep(AC_CURRENT_SWTICH_DELAY_100MS);*/
+/*                regh = 0x19;  |+ 850mA +|*/
+/*                tps65200_i2c_write_byte(regh, 0x01);*/
+
+		msleep(AC_CURRENT_SWTICH_DELAY_100MS);
+		regh = 0x29;  	/* 1050mA */
+		tps65200_i2c_write_byte(regh, 0x01);
+
+#endif  /* CONFIG_MACH_HOLIDAY */
 		tps65200_i2c_read_byte(&regh, 0x01);
 		tps65200_i2c_read_byte(&regh1, 0x00);
 		tps65200_i2c_read_byte(&regh2, 0x03);
@@ -385,13 +453,14 @@ int tps_set_charger_ctrl(u32 ctl)
 				"regh 0x00=%x, regh 0x03=%x, regh 0x02=%x\n",
 				regh, regh1, regh2, regh3);
 		tps65200_set_chg_stat(1);
-
+#if SET_VDPM_AS_476
 		tps65200_vdpm_chg = 1;
 		result = schedule_delayed_work(&set_vdpm_work, DELAY_MHL_INIT);
 		if (!result) {
 			cancel_delayed_work(&set_vdpm_work);
 			schedule_delayed_work(&set_vdpm_work, DELAY_MHL_INIT);
 		}
+#endif /* SET_VDPM_AS_476 */
 		break;
 	case POWER_SUPPLY_ENABLE_SLOW_HV_CHARGE:
 		tps65200_i2c_write_byte(0x29, 0x01);
@@ -471,6 +540,7 @@ int tps_set_charger_ctrl(u32 ctl)
 		pr_tps_info("Switch charger OVERTEMP_VREG_4060: regh 0x02=%x\n", regh);
 		break;
 	case NORMALTEMP_VREG:
+#ifdef CONFIG_SUPPORT_DQ_BATTERY
 		tps65200_i2c_read_byte(&regh, 0x04);
 		pr_tps_info("Switch charger CONFIG_D: regh 0x04=%x\n", regh);
 		if (htc_is_dq_pass) {
@@ -481,6 +551,7 @@ int tps_set_charger_ctrl(u32 ctl)
 			pr_tps_info("Switch charger NORMALTEMP_VREG_4340: regh 0x02=%x\n", regh);
 			break;
 		}
+#endif
 		tps65200_i2c_read_byte(&regh, 0x02);
 		regh = (regh & 0xC0) | 0X23;
 		tps65200_i2c_write_byte(regh, 0x02);
@@ -508,12 +579,14 @@ int tps_set_charger_ctrl(u32 ctl)
 		break;
 	case VDPM_ORIGIN_V:
 		tps65200_i2c_read_byte(&regh, 0x03);
-
+#ifdef CONFIG_SUPPORT_DQ_BATTERY
 		if (htc_is_dq_pass)
 			regh = (regh & 0xF8) | 0x05; /* set VDPM as 4.6V */
 		else
 			regh = (regh & 0xF8) | 0x03; /* set VDPM as 4.4V */
-
+#else
+		regh = (regh & 0xF8) | 0x03; /* set VDPM as 4.4V */
+#endif
 		tps65200_i2c_write_byte(regh, 0x03);
 		tps65200_i2c_read_byte(&regh, 0x03);
 		pr_tps_info("Set VDPM back to original V: regh 0x03=%x\n", regh);
@@ -535,6 +608,21 @@ int tps_set_charger_ctrl(u32 ctl)
 	return result;
 }
 EXPORT_SYMBOL(tps_set_charger_ctrl);
+
+#if 0
+static int tps65200_detect(struct i2c_client *client, int kind,
+			 struct i2c_board_info *info)
+{
+	if (!i2c_check_functionality(client->adapter,
+				     I2C_FUNC_SMBUS_WRITE_BYTE_DATA |
+				     I2C_FUNC_SMBUS_BYTE))
+		return -ENODEV;
+
+	strlcpy(info->type, "tps65200", I2C_NAME_SIZE);
+
+	return 0;
+}
+#endif
 
 static irqreturn_t chg_stat_handler(int irq, void *data)
 {
@@ -655,10 +743,11 @@ static int tps65200_probe(struct i2c_client *client,
 			ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP,
 			tps65200_check_alarm_handler);
 
+#ifdef CONFIG_SUPPORT_DQ_BATTERY
 	htc_is_dq_pass = pdata->dq_result;
 	if (htc_is_dq_pass)
 		pr_tps_info("HV battery is detected.\n");
-
+#endif
 	/*  For chg_stat interrupt initialization. */
 	chg_stat_int = 0;
 	if (pdata->gpio_chg_stat > 0) {
@@ -708,7 +797,9 @@ static int tps65200_probe(struct i2c_client *client,
 	data->client = client;
 	mutex_init(&data->xfer_lock);
 	tps65200_initial = 1;
+#if SET_VDPM_AS_476
 	tps_set_charger_ctrl(VDPM_476V);
+#endif
 	pr_tps_info("[TPS65200]: Driver registration done\n");
 	return 0;
 }
