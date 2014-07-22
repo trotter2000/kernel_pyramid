@@ -1841,10 +1841,16 @@ static struct platform_driver this_driver = {
 	},
 };
 
+/* touchscreen control */
+extern int cy8c_ts_early_off(struct platform_device *pdev);
+extern int cy8c_ts_late_init(struct platform_device *pdev);
+
 static struct msm_fb_panel_data pyramid_panel_data = {
 	.on	       = pyramid_lcd_on,
 	.off	       = pyramid_lcd_off,
 	.set_backlight = pyramid_set_backlight,
+	.early_off     = cy8c_ts_early_off,
+	.late_init     = cy8c_ts_late_init,
 };
 
 static struct msm_panel_info pinfo;

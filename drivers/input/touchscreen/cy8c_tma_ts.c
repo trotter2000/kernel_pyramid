@@ -1408,6 +1408,24 @@ static int cy8c_ts_resume(struct i2c_client *client)
 	return 0;
 }
 
+int cy8c_ts_early_off(struct platform_device *pdev)
+{
+	struct cy8c_ts_data *ts = private_ts;
+
+	cy8c_ts_suspend(ts->client, PMSG_SUSPEND);
+
+	return 0;
+}
+
+int cy8c_ts_late_init(struct platform_device *pdev)
+{
+	struct cy8c_ts_data *ts = private_ts;
+
+	cy8c_ts_resume(ts->client);
+
+	return 0;
+}
+
 static const struct i2c_device_id cy8c_ts_i2c_id[] = {
 	{CYPRESS_TMA_NAME, 0},
 	{}
@@ -1417,8 +1435,6 @@ static struct i2c_driver cy8c_ts_driver = {
 	.id_table = cy8c_ts_i2c_id,
 	.probe = cy8c_ts_probe,
 	.remove = cy8c_ts_remove,
-	.suspend = cy8c_ts_suspend,
-	.resume = cy8c_ts_resume,
 	.driver = {
 		.name = CYPRESS_TMA_NAME,
 		.owner = THIS_MODULE,
