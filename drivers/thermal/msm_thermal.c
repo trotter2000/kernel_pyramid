@@ -111,7 +111,7 @@ static void check_temp(struct work_struct *work)
 	int update_policy = 0;
 	int cpu = 0;
 	int ret = 0;
-	int loop_count = 0;
+	static int loop_count = 0;
 
 	tsens_dev.sensor_num = DEF_TEMP_SENSOR;
 	ret = tsens_get_temp(&tsens_dev, &temp);
