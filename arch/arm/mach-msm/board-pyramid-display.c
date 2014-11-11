@@ -1082,10 +1082,7 @@ static int first_init = 1;
 static int panel_uv = 0;
 module_param(panel_uv, int, 0664);
 
-void mipi_dsi_panel_uv(int panel_undervolt)
-{
-	panel_uv = panel_undervolt;
-}
+#define PYD_STOCK_VOLTAGE 3100000
 
 int mipi_dsi_panel_power(const int on)
 {
@@ -1094,10 +1091,7 @@ int mipi_dsi_panel_power(const int on)
 	static struct regulator *lvs1_1v8;
 	static struct regulator *l4_1v8;
 	int rc;
-	int panel_voltage;
-	static int panel_voltage_after = 3100000;
-
-	panel_voltage = (3100000 - (panel_uv * 1000));
+	static int panel_voltage = PYD_STOCK_VOLTAGE;
 
 	if (!dsi_power_on) {
 		l1_3v = regulator_get(NULL, "8901_l1");
@@ -1145,36 +1139,17 @@ int mipi_dsi_panel_power(const int on)
 		dsi_power_on = true;
 	}
 
-	if (dsi_power_on && (panel_voltage != 3100000)) {
-		// Do nothing if panel voltage has already been transformed
-		if (panel_voltage_after != panel_voltage) {
-			// Check if requested panel voltage is in bounds
-			if ((panel_voltage < 2400000) || (panel_voltage > 3100000)) {
-				pr_info("%s: %dmV is out of range\n", __func__, panel_uv);
-				pr_info("%s: falling back to %dmV\n", __func__, (panel_voltage_after/1000));
-				panel_voltage = panel_voltage_after;
-			} else {
-				// Check if requested panel voltage is a multiple
-				// of 25mV.
-				if ((panel_voltage % 25000) != 0) {
-					pr_info("%s: %dmV undervolt is not a multiple of 25\n", __func__, panel_uv);
-					pr_info("%s: falling back to %dmV\n", __func__, (panel_voltage_after/1000));
-					panel_voltage = panel_voltage_after;
-				} else {
-					rc = regulator_set_voltage(l1_3v, panel_voltage, panel_voltage);
+	/* Panel-undervolt interface */
+	if ((panel_uv < 0) || (panel_uv > 700) || (panel_uv % 25 != 0)) {
+		printk("%s: invalid undervolt requested: %dmV\n", __func__, panel_uv);
+		panel_uv = (PYD_STOCK_VOLTAGE - panel_voltage) / 1000;
+		printk("%s: falling back to %dmV undervolt\n", __func__, panel_uv);
+	} else if (panel_uv != (PYD_STOCK_VOLTAGE - panel_voltage) / 1000) {
+		panel_voltage = PYD_STOCK_VOLTAGE - (panel_uv * 1000);
 
-					if (rc) {
-						PR_DISP_ERR("%s: error undervolting panel\n", __func__);
-						return -EINVAL;
-					} else
-						pr_info("%s: panel voltage is now %dmV\n", __func__, (panel_voltage/1000));
-
-					panel_voltage_after = panel_voltage;
-				}
-			}
-
-			mipi_dsi_panel_uv((3100000 - panel_voltage)/1000);
-		}
+		rc = regulator_set_voltage(l1_3v, panel_voltage, panel_voltage);
+		if (rc)
+			printk("%s: error setting voltage\n", __func__);
 	}
 
 	if (!l1_3v || IS_ERR(l1_3v)) {
