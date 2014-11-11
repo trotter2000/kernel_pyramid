@@ -13,6 +13,7 @@
  *
  */
 
+#include <linux/cpu_boost.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/input.h>
@@ -449,9 +450,11 @@ static void report_psensor_input_event(struct isl29028_info *lpi,
 	if (s2w_switch != 0)
 		s2w_saved_setting = s2w_switch;
 
-	if (!val)
+	if (!val) {
+		cpu_boost_shutdown();
 		s2w_switch = 0;
-	else {
+	} else {
+		cpu_boost_startup();
 		s2w_switch = s2w_saved_setting;
 		s2w_saved_setting = 0;
 	}
