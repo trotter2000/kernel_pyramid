@@ -16,6 +16,7 @@
 #include "vcd_ddl_shared_mem.h"
 #include "vcd_res_tracker_api.h"
 
+
 struct ddl_context *ddl_get_context(void)
 {
 	static struct ddl_context ddl_context;
@@ -783,7 +784,7 @@ u32 ddl_allocate_dec_hw_buffers(struct ddl_client_context *ddl)
 		else {
 			if (!res_trk_check_for_sec_session()) {
 				memset(dec_bufs->desc.align_virtual_addr,
-					   0, buf_size.sz_desc);
+					0, buf_size.sz_desc);
 				msm_ion_do_cache_op(
 					ddl_context->video_ion_client,
 					dec_bufs->desc.alloc_handle,
@@ -842,7 +843,7 @@ u32 ddl_calc_enc_hw_buffers_size(enum vcd_codec codec, u32 width,
 		sz_strm = DDL_ALIGN(ddl_get_yuv_buf_size(width, height,
 			DDL_YUV_BUF_TYPE_LINEAR) + ddl_get_yuv_buf_size(width,
 			height/2, DDL_YUV_BUF_TYPE_LINEAR), DDL_KILO_BYTE(4));
-		sz_mv = DDL_ALIGN(2 * mb_x * 8, DDL_KILO_BYTE(2));
+		sz_mv = DDL_ALIGN(2 * mb_x * mb_y * 8, DDL_KILO_BYTE(2));
 		if ((codec == VCD_CODEC_MPEG4) ||
 			(codec == VCD_CODEC_H264)) {
 			sz_col_zero = DDL_ALIGN(((mb_x * mb_y + 7) / 8) *
@@ -1068,23 +1069,6 @@ u32 ddl_check_reconfig(struct ddl_client_context *ddl)
 			decoder->progressive_only)
 				need_reconfig = false;
 	}
-	DDL_MSG_HIGH("%s(): need_reconfig = %u, cont_mode = %u\n"\
-	"Actual: WxH = %ux%u, SxSH = %ux%u, sz = %u, min = %u, act = %u\n"\
-	"Client: WxH = %ux%u, SxSH = %ux%u, sz = %u, min = %u, act = %u\n",
-	__func__, need_reconfig, decoder->cont_mode,
-	decoder->frame_size.width, decoder->frame_size.height,
-	decoder->frame_size.stride, decoder->frame_size.scan_lines,
-	decoder->actual_output_buf_req.sz,
-	decoder->actual_output_buf_req.min_count,
-	decoder->actual_output_buf_req.actual_count,
-	decoder->client_frame_size.width,
-	decoder->client_frame_size.height,
-	decoder->client_frame_size.stride,
-	decoder->client_frame_size.scan_lines,
-	decoder->client_output_buf_req.sz,
-	decoder->client_output_buf_req.min_count,
-	decoder->client_output_buf_req.actual_count);
-
 	return need_reconfig;
 }
 
