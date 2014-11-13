@@ -1171,7 +1171,7 @@ int mipi_dsi_panel_power(const int on)
 	}
 
 	if (on) {
-		cpu_boost_timeout(1512, 5000);
+		cpu_boost_timeout(1512000, 5000);
 
 		if (regulator_enable(l1_3v)) {
 			PR_DISP_ERR("%s: Unable to enable the regulator:"
