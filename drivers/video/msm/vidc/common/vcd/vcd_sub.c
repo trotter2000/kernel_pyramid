@@ -1258,7 +1258,7 @@ u32 vcd_validate_driver_handle(
 	driver_handle--;
 
 	if (driver_handle < 0 ||
-		driver_handle >= VCD_DRIVER_INSTANCE_MAX ||
+		driver_handle >= VCD_DRIVER_CLIENTS_MAX ||
 		!dev_ctxt->driver_ids[driver_handle]) {
 		return false;
 	} else {
@@ -1863,7 +1863,7 @@ u32 vcd_handle_recvd_eos(
 	} else if (cctxt->decoding && !input_frame->virtual) {
 		cctxt->sched_clnt_hdl->tkns++;
 		VCD_MSG_LOW("%s: decoding & virtual addr is NULL", __func__);
-    } else if (!cctxt->decoding && !cctxt->status.frame_delayed) {
+	} else if (!cctxt->decoding && !cctxt->status.frame_delayed) {
 		if (!cctxt->status.frame_submitted) {
 			vcd_send_frame_done_in_eos(cctxt, input_frame, false);
 			if (cctxt->status.mask & VCD_EOS_WAIT_OP_BUF)
@@ -3574,7 +3574,8 @@ u32 vcd_set_num_slices(struct vcd_clnt_ctxt *cctxt)
 	struct vcd_property_slice_delivery_info slice_delivery_info;
 	u32 rc = VCD_S_SUCCESS;
 	prop_hdr.prop_id = VCD_I_SLICE_DELIVERY_MODE;
-	prop_hdr.sz = sizeof(struct vcd_property_slice_delivery_info);
+	prop_hdr.sz =
+		sizeof(struct vcd_property_slice_delivery_info);
 	rc = ddl_get_property(cctxt->ddl_handle, &prop_hdr,
 				&slice_delivery_info);
 	VCD_FAILED_RETURN(rc, "Failed: Get VCD_I_SLICE_DELIVERY_MODE");
