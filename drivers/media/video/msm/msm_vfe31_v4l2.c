@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/cpu_boost.h>
 #include <linux/module.h>
 #include <linux/uaccess.h>
 #include <linux/interrupt.h>
@@ -1295,7 +1296,7 @@ static int vfe31_proc_general(
 	case VFE_CMD_CAPTURE:
 		pr_info("[CAM] vfe31_proc_general: cmdID = %s\n",
 			vfe31_general_cmd[cmd->id]);
-
+		cpu_boost_timeout(1404, 3000);
 		if (copy_from_user(&snapshot_cnt, (void __user *)(cmd->value),
 				sizeof(uint32_t))) {
 			rc = -EFAULT;

@@ -618,7 +618,7 @@ static int vid_enc_open(struct inode *inode, struct file *file)
 	int rc = 0;
 	struct video_client_ctx *client_ctx = NULL;
 
-	cpu_boost(594000);
+	cpu_boost(594);
 
 	INFO("msm_vidc_venc: Inside %s()", __func__);
 	mutex_lock(&vid_enc_device_p->lock);
@@ -659,7 +659,7 @@ static int vid_enc_open_secure(struct inode *inode, struct file *file)
 	struct vcd_property_hdr vcd_property_hdr;
 	struct vcd_property_sps_pps_for_idr_enable idr_enable;
 
-	cpu_boost(594000);
+	cpu_boost(594);
 
 	INFO("msm_vidc_enc: Inside %s()", __func__);
 	mutex_lock(&vid_enc_device_p->lock);
