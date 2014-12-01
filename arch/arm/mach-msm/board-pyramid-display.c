@@ -23,7 +23,6 @@
 #include <mach/panel_id.h>
 #include <mach/msm_bus_board.h>
 #include <linux/bootmem.h>
-#include <linux/cpu_boost.h>
 #include <mach/debug_display.h>
 
 #include "devices.h"
@@ -1171,8 +1170,6 @@ int mipi_dsi_panel_power(const int on)
 	}
 
 	if (on) {
-		cpu_boost_timeout(1512, 5000);
-
 		if (regulator_enable(l1_3v)) {
 			PR_DISP_ERR("%s: Unable to enable the regulator:"
 					" l1_3v\n", __func__);
