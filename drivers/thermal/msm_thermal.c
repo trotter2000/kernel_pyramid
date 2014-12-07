@@ -15,6 +15,7 @@
 
 #define pr_fmt(fmt) "MSM_THERMAL: " fmt
 
+#include <linux/cpu.h>
 #include <linux/cpufreq.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -92,6 +93,7 @@ static void msm_thermal_main(struct work_struct *work)
 		goto reschedule;
 	}
 
+	get_online_cpus();
 	for_each_possible_cpu(cpu) {
 		t = &per_cpu(throttle_info, cpu);
 
@@ -133,8 +135,10 @@ static void msm_thermal_main(struct work_struct *work)
 			t->cpu_throttle = MID_THROTTLE;
 		}
 		/* trigger cpufreq notifier */
-		cpufreq_update_policy(cpu);
+		if (cpu_online(cpu))
+			cpufreq_update_policy(cpu);
 	}
+	put_online_cpus();
 
 reschedule:
 	queue_delayed_work(thermal_wq, &msm_thermal_main_work,
