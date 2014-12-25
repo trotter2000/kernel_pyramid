@@ -11,8 +11,6 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "CPU-boost: " fmt
-
 #include <linux/cpu.h>
 #include <linux/cpu_boost.h>
 #include <linux/cpufreq.h>
@@ -30,6 +28,7 @@ static unsigned int boost_override = 0;
 static unsigned int cpu_boosted = 0;
 static unsigned int enable = 1;
 static unsigned int init_done = 0;
+static unsigned int maxfreq_orig = 0;
 static unsigned int minfreq_orig = 0;
 
 void cpu_boost_timeout(unsigned int freq_mhz, unsigned int duration_ms)
@@ -72,7 +71,7 @@ void cpu_boost_shutdown(void)
 {
 	if (init_done) {
 		enable = 0;
-		pr_info("%s: boosting disabled!\n", __func__);
+		pr_info("%s: CPU-boost framework disabled!\n", __func__);
 	}
 }
 
@@ -80,11 +79,11 @@ void cpu_boost_startup(void)
 {
 	if (init_done) {
 		enable = 1;
-		pr_info("%s: boosting enabled!\n", __func__);
+		pr_info("%s: CPU-boost framework enabled!\n", __func__);
 	}
 }
 
-static void save_orig_minfreq(void)
+static void save_original_freq_limits(void)
 {
 	struct cpufreq_policy *policy;
 	int retry_count = 0;
@@ -93,7 +92,8 @@ retry:
 	policy = cpufreq_cpu_get(0);
 
 	if (unlikely(!policy)) {
-		pr_err("%s: Error acquiring CPU0 policy, try #%d\n", __func__, retry_count);
+		pr_err("%s: CPU-boost: Error acquiring CPU0 policy, try #%d\n",
+								__func__, retry_count);
 		if (retry_count <= 3) {
 			retry_count++;
 			goto retry;
@@ -102,6 +102,8 @@ retry:
 	}
 
 	minfreq_orig = policy->user_policy.min;
+	maxfreq_orig = policy->user_policy.max;
+
 	cpufreq_cpu_put(policy);
 }
 
@@ -114,7 +116,8 @@ retry:
 	policy = cpufreq_cpu_get(0);
 
 	if (unlikely(!policy)) {
-		pr_err("%s: Error acquiring CPU0 policy, try #%d\n", __func__, retry_count);
+		pr_err("%s: CPU-boost: Error acquiring CPU0 policy, try #%d\n",
+								__func__, retry_count);
 		if (retry_count <= 3) {
 			retry_count++;
 			goto retry;
@@ -122,18 +125,9 @@ retry:
 		return;
 	}
 
-	if (minfreq > policy->user_policy.max) {
-		if (policy->user_policy.max <= 486000) {
-			boost_duration_ms = 0;
-			boost_override = 0;
-			goto abort;
-		} else
-			minfreq = policy->user_policy.max - 108000;
-	}
-
 	policy->user_policy.min = minfreq;
+
 	cpufreq_update_policy(0);
-abort:
 	cpufreq_cpu_put(policy);
 }
 
@@ -152,7 +146,7 @@ static void restore_original_minfreq(void)
 
 static void __cpuinit cpu_boost_main(struct work_struct *work)
 {
-	unsigned int wait_ms = 0;
+	unsigned int minfreq = 0, wait_ms = 0;
 
 	if (cpu_boosted) {
 		restore_original_minfreq();
@@ -160,10 +154,22 @@ static void __cpuinit cpu_boost_main(struct work_struct *work)
 	}
 
 	if (!boost_override)
-		save_orig_minfreq();
+		save_original_freq_limits();
 
 	if (boost_freq_khz) {
-		set_new_minfreq(boost_freq_khz);
+		if (boost_freq_khz > maxfreq_orig) {
+			if (maxfreq_orig <= 486000) {
+				boost_duration_ms = 0;
+				boost_override = 0;
+				return;
+			} else
+				minfreq = maxfreq_orig - 108000;
+		} else
+			minfreq = boost_freq_khz;
+
+		/* Boost online CPUs. */
+		set_new_minfreq(minfreq);
+
 		cpu_boosted = 1;
 	}
 
