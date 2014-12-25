@@ -18,6 +18,7 @@
 #include <linux/cpumask.h>
 #include <linux/cpu_input_boost.h>
 #include <linux/earlysuspend.h>
+#include <linux/hardirq.h>
 #include <linux/hrtimer.h>
 #include <linux/init.h>
 #include <linux/input.h>
@@ -25,8 +26,15 @@
 #include <linux/moduleparam.h>
 #include <linux/slab.h>
 
+enum {
+	NO_BOOST = 0,
+	BOOSTED,
+	OVERRIDE,
+};
+
 DEFINE_PER_CPU(struct boost_policy, boost_info);
 static struct workqueue_struct *boost_wq;
+static struct delayed_work boost_work;
 
 static bool suspended;
 
@@ -47,12 +55,17 @@ static void cpu_boost_timeout(unsigned int freq, unsigned int duration_ms)
 	if (!suspended) {
 		for_each_possible_cpu(cpu) {
 			b = &per_cpu(boost_info, cpu);
-			if (b->cpu_boosted)
-				cancel_delayed_work_sync(&b->restore_work);
+			if (b->cpu_boosted) {
+				if (in_irq())
+					return;
+				if (cpu == (CONFIG_NR_CPUS - 1))
+					cancel_delayed_work(&boost_work);
+				b->cpu_boosted = OVERRIDE;
+			}
 			b->boost_freq = freq;
 			b->boost_ms = duration_ms;
-			queue_work(boost_wq, &b->boost_work);
 		}
+		queue_delayed_work(boost_wq, &boost_work, 0);
 	}
 }
 
@@ -61,7 +74,6 @@ static void save_orig_minfreq(unsigned int cpu)
 	struct boost_policy *b = &per_cpu(boost_info, cpu);
 	struct cpufreq_policy *policy;
 
-	get_online_cpus();
 	if (cpu_online(cpu)) {
 		policy = cpufreq_cpu_get(cpu);
 		if (likely(policy)) {
@@ -69,7 +81,6 @@ static void save_orig_minfreq(unsigned int cpu)
 			cpufreq_cpu_put(policy);
 		}
 	}
-	put_online_cpus();
 }
 
 static void set_new_minfreq(unsigned int minfreq, unsigned int cpu)
@@ -77,7 +88,6 @@ static void set_new_minfreq(unsigned int minfreq, unsigned int cpu)
 	struct boost_policy *b = &per_cpu(boost_info, cpu);
 	struct cpufreq_policy *policy;
 
-	get_online_cpus();
 	if (cpu_online(cpu)) {
 		policy = cpufreq_cpu_get(cpu);
 		if (likely(policy)) {
@@ -87,9 +97,8 @@ static void set_new_minfreq(unsigned int minfreq, unsigned int cpu)
 			cpufreq_cpu_put(policy);
 			cpufreq_update_policy(cpu);
 		}
-	} else if (minfreq > b->saved_max)
+	} else if (b->saved_max && (minfreq > b->saved_max))
 		minfreq = b->saved_max;
-	put_online_cpus();
 	b->boost_freq = minfreq;
 }
 
@@ -98,39 +107,54 @@ static void restore_orig_minfreq(unsigned int cpu)
 	struct boost_policy *b = &per_cpu(boost_info, cpu);
 	struct cpufreq_policy *policy;
 
-	get_online_cpus();
-	if (cpu_online(cpu)) {
-		policy = cpufreq_cpu_get(cpu);
-		if (likely(policy)) {
-			policy->user_policy.min = b->saved_min;
-			cpufreq_cpu_put(policy);
-			cpufreq_update_policy(cpu);
+	if (b->saved_min) {
+		if (cpu_online(cpu)) {
+			policy = cpufreq_cpu_get(cpu);
+			if (likely(policy)) {
+				policy->user_policy.min = b->saved_min;
+				cpufreq_cpu_put(policy);
+				cpufreq_update_policy(cpu);
+			}
 		}
 	}
-	put_online_cpus();
-	b->cpu_boosted = false;
+	b->boost_freq = NO_BOOST;
+	b->boost_ms = NO_BOOST;
+	b->cpu_boosted = NO_BOOST;
 }
 
 static void __cpuinit cpu_boost_main(struct work_struct *work)
 {
-	struct boost_policy *b = container_of(work, struct boost_policy,
-						boost_work);
+	struct boost_policy *b;
+	unsigned int cpu;
 
-	if (!b->cpu_boosted)
-		save_orig_minfreq(b->cpu);
-	b->cpu_boosted = true;
-	set_new_minfreq(b->boost_freq, b->cpu);
+	get_online_cpus();
+	for_each_possible_cpu(cpu) {
+		b = &per_cpu(boost_info, cpu);
 
-	queue_delayed_work(boost_wq, &b->restore_work,
-			msecs_to_jiffies(b->boost_ms));
-}
+		switch (b->cpu_boosted) {
+		case NO_BOOST:
+			save_orig_minfreq(cpu);
+			break;
+		case BOOSTED:
+			restore_orig_minfreq(cpu);
+			/* return when the final cpu is unboosted */
+			if (cpu == (CONFIG_NR_CPUS - 1)) {
+				put_online_cpus();
+				return;
+			}
+			break;
+		}
 
-static void __cpuinit cpu_restore_main(struct work_struct *work)
-{
-	struct boost_policy *b = container_of(work, struct boost_policy,
-						restore_work.work);
+		if (b->boost_freq) {
+			b->cpu_boosted = BOOSTED;
+			set_new_minfreq(b->boost_freq, cpu);
+		}
 
-	restore_orig_minfreq(b->cpu);
+		if (cpu == (CONFIG_NR_CPUS - 1))
+			queue_delayed_work(boost_wq, &boost_work,
+				msecs_to_jiffies(b->boost_ms));
+	}
+	put_online_cpus();
 }
 
 static void cpu_boost_early_suspend(struct early_suspend *handler)
@@ -140,9 +164,11 @@ static void cpu_boost_early_suspend(struct early_suspend *handler)
 
 	suspended = true;
 
+	if (!in_irq())
+		cancel_delayed_work(&boost_work);
+
 	for_each_possible_cpu(cpu) {
 		b = &per_cpu(boost_info, cpu);
-		cancel_delayed_work_sync(&b->restore_work);
 		if (b->cpu_boosted)
 			restore_orig_minfreq(cpu);
 	}
@@ -248,8 +274,6 @@ static struct input_handler cpu_boost_input_handler = {
 
 static int __init cpu_boost_init(void)
 {
-	struct boost_policy *b;
-	unsigned int cpu;
 	int ret;
 
 	boost_wq = alloc_workqueue("cpu_input_boost_wq", WQ_HIGHPRI, 0);
@@ -259,12 +283,7 @@ static int __init cpu_boost_init(void)
 		goto fail;
 	}
 
-	for_each_possible_cpu(cpu) {
-		b = &per_cpu(boost_info, cpu);
-		b->cpu = cpu;
-		INIT_WORK(&b->boost_work, cpu_boost_main);
-		INIT_DELAYED_WORK(&b->restore_work, cpu_restore_main);
-	}
+	INIT_DELAYED_WORK(&boost_work, cpu_boost_main);
 
 	ret = input_register_handler(&cpu_boost_input_handler);
 	if (ret) {
