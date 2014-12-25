@@ -27,7 +27,7 @@
 #include <asm/uaccess.h>
 
 #include "idle_stats.h"
-#include <mach/cpuidle.h>
+#include "cpuidle.h"
 
 /******************************************************************************
  * Debug Definitions
