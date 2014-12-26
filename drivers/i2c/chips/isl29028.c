@@ -404,9 +404,6 @@ static void lightsensor_real_disable(struct isl29028_info *lpi)
 	}
 }
 
-extern int s2w_switch;
-static int s2w_saved_setting = 0;
-
 static void report_psensor_input_event(struct isl29028_info *lpi,
 					uint16_t ps_adc)
 {
@@ -445,16 +442,6 @@ static void report_psensor_input_event(struct isl29028_info *lpi,
 	}
 
 	IPS("proximity %s\n", val ? "FAR" : "NEAR");
-
-	if (s2w_switch != 0)
-		s2w_saved_setting = s2w_switch;
-
-	if (!val)
-		s2w_switch = 0;
-	else {
-		s2w_switch = s2w_saved_setting;
-		s2w_saved_setting = 0;
-	}
 
 	if (lpi->debounce == 1) {
 		if (val == 0) {
@@ -1103,11 +1090,6 @@ static int psensor_disable(struct isl29028_info *lpi)
 	judge_and_enable_lightsensor(lpi);
 
 	IPS("%s\n", __func__);
-
-	if (s2w_saved_setting != 0) {
-		s2w_switch = s2w_saved_setting;
-		s2w_saved_setting = 0;
-	}
 
 	if (!lpi->ps_enable) {
 		DPS("%s: already disabled\n", __func__);
